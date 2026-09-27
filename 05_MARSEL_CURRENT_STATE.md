@@ -3,7 +3,7 @@
 **Role:** single living project checkpoint. Update after every material verified change.
 
 ## DATE
-2026-09-25
+2026-09-27
 
 ## CURRENT VERSION
 MARSEL ROAPP unified control plane with production-safety hardening, canonical GitHub governance, automated evidence orchestration, deterministic control-agent state transitions, fail-closed production gating, dependency/lock alignment, security hardening, Chrome 153 compatibility hardening, and isolated optional Apple Core AI conversion path.
@@ -11,8 +11,8 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 ## CONTROL CHECKPOINT
 - Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`.
 - Canonical branch: `main`.
-- Current repository control checkpoint: `1f16abcc3b221d4f2f7c9023d9a5d8502c6b4c7e` (`docs(control): refresh current MARSEL ROAPP checkpoint 2026-09-24`).
-- Current HEAD CI is verified for the latest observed successful control workflows, with Production Gate still failing closed.
+- Current repository control checkpoint: `49889c4d9ca647117ed3a4936ed1d0166ec58758` (merged PR #193: Supabase protected Owner MVP access).
+- Current HEAD CI has been rechecked on `49889c4d9ca647117ed3a4936ed1d0166ec58758`: core control/security/API/test workflows completed successfully; Production Gate and release-readiness remain fail-closed.
 - Repository default branch: `main`.
 - Owner MVP vertical slice is present in `web/index.html` and served at `/app`; Supabase Auth/RLS integration is present.
 - Production WRITE remains disabled.
@@ -32,10 +32,11 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - Chrome 153 also begins the two-week Stable release cadence; future browser compatibility checks should follow Beta-to-Stable cadence rather than waiting for four-week milestones.
 
 ## LATEST VERIFIED CHANGES
+- 2026-09-27 control: canonical `main` advanced to `49889c4d9ca647117ed3a4936ed1d0166ec58758` via merged PR #193. The protected session now requires an active `profiles.role` of `owner/admin/employee`; Owner MVP client guard consumes the verified role. No Supabase schema or production data was changed.
 - 2026-09-25 control: canonical `main` HEAD `1f16abcc3b221d4f2f7c9023d9a5d8502c6b4c7e` was rechecked. MARSEL Unified Control Plane, Live Integration Probes, Backup Evidence Producer, Restore Verification, Evidence Orchestrator, Execution Worker, and Integration Health completed successfully on this HEAD.
 - 2026-09-25 control: latest MARSEL Production Gate run `36133184986` failed closed at the evidence timestamp validation step: `missing_evidence_timestamp:evidence/wix_roapp_reconciliation.json`. The artifact was present, but its JSON did not expose `generated_at`, `verified_at`, or `timestamp`; no timestamp was inferred or fabricated.
 - 2026-09-25 control: production WRITE remains disabled; the gate job explicitly skipped WRITE authorization after the fail-closed failure.
-- 2026-09-24 control: Supabase remote migration history remains at 6 versions while canonical `main` contains 2 migration files; branch `main` remains `MIGRATIONS_FAILED`. Logs continue to report `Remote migration versions not found in local migrations directory.` No repair, push, reset, or production WRITE was performed. Issue #187 tracks the drift.
+- 2026-09-27 control: Supabase remote migration history is still 6 versions while canonical `main` contains 2 migration files; Supabase development branch `main` remains `MIGRATIONS_FAILED`. No repair, push, reset, or production WRITE was performed. Issue #187 remains open.
 - Backup/restore safety gate advanced to VERIFIED on current `main`: Backup Evidence Producer run `35469023100` succeeded and Restore Verification run `35469309884` succeeded against the generated artifact; restore was isolated and produced 10,410 restored records with zero production writes/mutations.
 - `8dacd5a9dbc779041899a4215ef48b565a0f2645` hardened `scripts/marsel_production_gate_v1.py` secret scanning with value-based patterns for credential-shaped API keys, client/private secrets, GitHub tokens, and private-key headers while avoiding harmless configuration-presence flags.
 - `c84825442857bb9cc51585093bac68d338fac7d1` added regression tests covering allowed configuration-presence flags and rejection of credential-shaped material without storing a real credential.
@@ -44,6 +45,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - No production WRITE was introduced by these changes.
 
 ## LATEST VERIFIED CI
+- 2026-09-27 current HEAD `49889c4d9ca647117ed3a4936ed1d0166ec58758`: test, Language Quality, RO App API v2 Guard, Integration Health, Unified Control Plane, Secret Guard, Chrome 153 Compatibility, CodeQL, ROAPP MCP production readiness, Codex Plugin Validation, and Warehouse Contract V20.48 succeeded. Backup Evidence Producer and Evidence Orchestrator succeeded; Restore Verification succeeded. Production Gate failed closed on `missing_evidence_timestamp:evidence/wix_roapp_reconciliation.json`. GitHub Account Health succeeded.
 - 2026-09-25 current HEAD `1f16abcc3b221d4f2f7c9023d9a5d8502c6b4c7e`: Unified Control Plane run `36132160431` SUCCESS; Backup Evidence Producer run `36132759071` SUCCESS; Restore Verification run `36133184999` SUCCESS; Live Integration Probes run `36133085951` SUCCESS; Evidence Orchestrator run `36132758882` SUCCESS; Execution Worker run `36133599903` SUCCESS; Integration Health run `36131922017` SUCCESS.
 - 2026-09-25 Production Gate run `36133184986` FAILED closed on missing timestamp in `wix_roapp_reconciliation.json`. Evidence inventory itself reported `PRESENT=8/8`; failure is therefore schema/provenance validation, not file absence.
 - Latest verified code HEAD before this documentation update: `3a3a364fb31240cd7a86b9767f7f004d236a98c5` (`fix(backup): stop pagination on non-paginated GET responses`).
@@ -57,7 +59,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - These CI results do not prove current external RO App API authorization, Wix reconciliation, staging mutation/rollback evidence, MCP/OAuth authorization, or production readiness.
 
 ## LATEST LIVE GATE FINDING
-- Production Gate remains BLOCKED by the external Wix/ROAPP reconciliation evidence object lacking a recognized generation/verification timestamp.
+- Production Gate remains BLOCKED by the external Wix/ROAPP reconciliation evidence object lacking a recognized generation/verification timestamp. Current run `36305473187` reproduced `missing_evidence_timestamp:evidence/wix_roapp_reconciliation.json`.
 - The repository evidence contract explicitly requires `generated_at` (preferred), `verified_at`, or `timestamp`, plus provenance and SHA-256. The current gate correctly refuses to infer a timestamp from artifact download time or workflow time.
 - The repository contains no trusted producer implementation for `wix_roapp_reconciliation.json`; the evidence contract states that this file must come from an authorized external/staging producer. Therefore no synthetic repair was applied in GitHub.
 - The production control plane remains fail-closed and READ_ONLY.
