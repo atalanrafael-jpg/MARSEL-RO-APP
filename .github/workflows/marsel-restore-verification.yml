@@ -69,5 +69,7 @@ jobs:
           path: |
             restore_evidence.json
             marsel-restore-staging.sqlite
+            backup/marsel-full-readonly-backup-v1.json
+            backup/backup_evidence.json
           if-no-files-found: error
           retention-days: 90
