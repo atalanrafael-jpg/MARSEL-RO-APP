@@ -1,14 +1,16 @@
 name: MARSEL release readiness
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["MARSEL Restore Verification"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: marsel-release-readiness-${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +22,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Download trusted backup/restore evidence
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          name: marsel-restore-evidence
+          path: artifacts/evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
