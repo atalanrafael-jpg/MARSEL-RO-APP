@@ -58,3 +58,7 @@ A successful preflight is repository evidence, not proof of those external condi
 6. Only then advance Product Gate A.
 
 No production data mutation is part of this contract.
+
+## Deployment control checkpoint
+
+2026-10-01: Railway service `marsel-roapp` is configured for this repository and `main`, but a manual redeploy produced a successful deployment from older commit `45a36badad93e05214c64071f81c8b01f0693cbe`. Current GitHub `main` is `4250dc61e63f76de00d53d9a2f82a969a4ecd856`. This discrepancy must be resolved before claiming current-main production deployment.
