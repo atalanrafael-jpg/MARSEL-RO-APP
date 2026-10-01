@@ -8,6 +8,8 @@ on:
       - "web/**"
       - "01_MASTER/**"
       - "README.md"
+      - "05_MARSEL_CURRENT_STATE.md"
+      - "docs/**"
       - "scripts/marsel_owner_mvp_preflight.py"
       - ".github/workflows/marsel-owner-mvp-preflight.yml"
   workflow_dispatch:
