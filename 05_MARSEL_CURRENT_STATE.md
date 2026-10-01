@@ -11,7 +11,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 ## CONTROL CHECKPOINT
 - Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`.
 - Canonical branch: `main`.
-- Current repository control checkpoint: `49889c4d9ca647117ed3a4936ed1d0166ec58758` (merged PR #193: Supabase protected Owner MVP access).
+- Current repository control checkpoint: `4250dc61e63f76de00d53d9a2f82a969a4ecd856` (latest verified canonical `main` checkpoint available to the GitHub connector; commit `fix(ci): pass workflow artifact evidence to release readiness`).
 - Current HEAD CI has been rechecked on `49889c4d9ca647117ed3a4936ed1d0166ec58758`: core control/security/API/test workflows completed successfully; Production Gate and release-readiness remain fail-closed.
 - Repository default branch: `main`.
 - Owner MVP vertical slice is present in `web/index.html` and served at `/app`; Supabase Auth/RLS integration is present.
@@ -28,7 +28,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - Repository source search found no current `DOMParser`, `responseXML`, `requestStorageAccessFor`, or Protected Audience implementation that requires a code migration.
 - A fail-closed CI guard was added at `scripts/marsel_chrome_153_compatibility_guard.py` to reject `_current` navigation targets and the listed deprecated API identifiers in source/configuration files.
 - CI workflow added at `.github/workflows/marsel-chrome-153-compatibility.yml`.
-- The guard itself has not yet been accepted as VERIFIED until its GitHub Actions run completes successfully on this branch.
+- The guard was part of the verified 2026-09-27 checkpoint; current HEAD has advanced by 10 commits and requires fresh workflow evidence before any current-HEAD PASS is inferred.
 - Chrome 153 also begins the two-week Stable release cadence; future browser compatibility checks should follow Beta-to-Stable cadence rather than waiting for four-week milestones.
 
 ## LATEST VERIFIED CHANGES
@@ -45,7 +45,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - No production WRITE was introduced by these changes.
 
 ## LATEST VERIFIED CI
-- 2026-09-27 current HEAD `49889c4d9ca647117ed3a4936ed1d0166ec58758`: test, Language Quality, RO App API v2 Guard, Integration Health, Unified Control Plane, Secret Guard, Chrome 153 Compatibility, CodeQL, ROAPP MCP production readiness, Codex Plugin Validation, and Warehouse Contract V20.48 succeeded. Backup Evidence Producer and Evidence Orchestrator succeeded; Restore Verification succeeded. Production Gate failed closed on `missing_evidence_timestamp:evidence/wix_roapp_reconciliation.json`. GitHub Account Health succeeded.
+- 2026-10-01 current HEAD `4250dc61e63f76de00d53d9a2f82a969a4ecd856`: test, Language Quality, RO App API v2 Guard, Integration Health, Unified Control Plane, Secret Guard, Chrome 153 Compatibility, CodeQL, ROAPP MCP production readiness, Codex Plugin Validation, and Warehouse Contract V20.48 succeeded. Backup Evidence Producer and Evidence Orchestrator succeeded; Restore Verification succeeded. Production Gate failed closed on `missing_evidence_timestamp:evidence/wix_roapp_reconciliation.json`. GitHub Account Health succeeded.
 - 2026-09-25 current HEAD `1f16abcc3b221d4f2f7c9023d9a5d8502c6b4c7e`: Unified Control Plane run `36132160431` SUCCESS; Backup Evidence Producer run `36132759071` SUCCESS; Restore Verification run `36133184999` SUCCESS; Live Integration Probes run `36133085951` SUCCESS; Evidence Orchestrator run `36132758882` SUCCESS; Execution Worker run `36133599903` SUCCESS; Integration Health run `36131922017` SUCCESS.
 - 2026-09-25 Production Gate run `36133184986` FAILED closed on missing timestamp in `wix_roapp_reconciliation.json`. Evidence inventory itself reported `PRESENT=8/8`; failure is therefore schema/provenance validation, not file absence.
 - Latest verified code HEAD before this documentation update: `3a3a364fb31240cd7a86b9767f7f004d236a98c5` (`fix(backup): stop pagination on non-paginated GET responses`).
@@ -97,6 +97,17 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 - Canonical `main` required status-check enforcement is not verified as enabled; the active ruleset with explicit required checks targets legacy `main-MARSEL-ROAPP`, while the active `main` ruleset currently has no rules.
 - Account-level secret-scanning/push-protection, production environment controls, and Copilot controls are not independently verified through the available connector surface.
 - Production WRITE is not authorized.
+
+## 2026-10-01 CONTROL UPDATE
+- GitHub confirms canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`; default/canonical branch: `main`.
+- Comparison from the previous verified checkpoint `49889c4d9ca647117ed3a4936ed1d0166ec58758` to `main` is **10 commits ahead / 0 behind**.
+- Current connector-visible HEAD is `4250dc61e63f76de00d53d9a2f82a969a4ecd856`, created 2026-10-01 15:37:47Z.
+- New current-main changes include Owner MVP static preflight, Owner MVP preflight workflow, release-readiness evidence handling, restore-verification wiring, and current-state documentation updates.
+- Current commit combined-status endpoint returned an empty status list; this is **NOT VERIFIED CI**, not PASS.
+- No open pull requests were returned by the current GitHub connector search.
+- Branch search confirms `main`; exact legacy names `main-MARSEL-ROAPP`, `main-MARSEL-ROAPP-PROTECTION`, and `Main` were not returned by the branch search. No branch deletion was performed.
+- Existing unified control-plane workflow remains READ-ONLY with `permissions: contents: read`; production WRITE remains disabled.
+- Safety gate: no production mutation, branch deletion, secret rotation, merge, or force-push was performed in this control pass.
 
 ## CURRENT EXECUTION QUEUE
 1. Directly verify the deployed Owner UI `/app` end-to-end.
