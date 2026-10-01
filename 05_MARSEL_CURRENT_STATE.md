@@ -3,7 +3,7 @@
 **Role:** single living project checkpoint. Update after every material verified change.
 
 ## DATE
-2026-09-27
+2026-10-01
 
 ## CURRENT VERSION
 MARSEL ROAPP unified control plane with production-safety hardening, canonical GitHub governance, automated evidence orchestration, deterministic control-agent state transitions, fail-closed production gating, dependency/lock alignment, security hardening, Chrome 153 compatibility hardening, and isolated optional Apple Core AI conversion path.
@@ -11,7 +11,7 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 ## CONTROL CHECKPOINT
 - Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`.
 - Canonical branch: `main`.
-- Current repository control checkpoint: `4250dc61e63f76de00d53d9a2f82a969a4ecd856` (latest verified canonical `main` checkpoint available to the GitHub connector; commit `fix(ci): pass workflow artifact evidence to release readiness`).
+- Current repository control checkpoint: `06ec02d5058885e23fedb8b7be25fe1a896ad8ab` (current documentation checkpoint; latest preceding application checkpoint is `a6c2ac9e9857d0d993aa3cc9268d58624420966b`, `docs: add Owner MVP preflight contract`).
 - Current HEAD CI has been rechecked on `49889c4d9ca647117ed3a4936ed1d0166ec58758`: core control/security/API/test workflows completed successfully; Production Gate and release-readiness remain fail-closed.
 - Repository default branch: `main`.
 - Owner MVP vertical slice is present in `web/index.html` and served at `/app`; Supabase Auth/RLS integration is present.
@@ -100,8 +100,8 @@ MARSEL ROAPP unified control plane with production-safety hardening, canonical G
 
 ## 2026-10-01 CONTROL UPDATE
 - GitHub confirms canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`; default/canonical branch: `main`.
-- Comparison from the previous verified checkpoint `49889c4d9ca647117ed3a4936ed1d0166ec58758` to `main` is **10 commits ahead / 0 behind**.
-- Current connector-visible HEAD is `4250dc61e63f76de00d53d9a2f82a969a4ecd856`, created 2026-10-01 15:37:47Z.
+- Comparison from the previous verified checkpoint `49889c4d9ca647117ed3a4936ed1d0166ec58758` reached the 2026-10-01 Owner MVP preflight changes; the current main then received this documentation-only checkpoint update.
+- Current connector-visible application checkpoint before this documentation update was `a6c2ac9e9857d0d993aa3cc9268d58624420966b` (2026-10-01 17:39:11Z); the documentation checkpoint commit is `06ec02d5058885e23fedb8b7be25fe1a896ad8ab`.
 - New current-main changes include Owner MVP static preflight, Owner MVP preflight workflow, release-readiness evidence handling, restore-verification wiring, and current-state documentation updates.
 - Current commit combined-status endpoint returned an empty status list; this is **NOT VERIFIED CI**, not PASS.
 - No open pull requests were returned by the current GitHub connector search.
