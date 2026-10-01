@@ -3,16 +3,20 @@
 
 Fail-closed controller for the canonical release. It never writes to RO App and
 never treats a placeholder or malformed evidence file as production evidence.
+
+Evidence directory is injectable so workflow artifacts can be validated without
+copying or mutating repository evidence.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EVIDENCE_DIR = ROOT / "evidence"
+EVIDENCE_DIR = Path(os.environ.get("MARSEL_EVIDENCE_DIR", ROOT / "evidence"))
 REQUIRED = [
     ".github/workflows/mcp-production.yml",
     "scripts/marsel_canonical_self_check.py",
@@ -37,6 +41,17 @@ SECRET_PATTERN = re.compile(r"(?i)(bearer\s+|sk-[a-z0-9]|api[_-]?key\s*[:=]|pass
 
 def fail(msg: str) -> None:
     raise SystemExit(f"RELEASE_READINESS_FAIL: {msg}")
+
+
+def resolve_evidence_path(name: str) -> Path | None:
+    direct = EVIDENCE_DIR / name
+    if direct.exists():
+        return direct
+    # Restore artifacts currently package backup_evidence.json under backup/.
+    candidates = list(EVIDENCE_DIR.glob(f"**/{name}"))
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
 
 
 def validate_evidence(path: Path) -> dict:
@@ -86,18 +101,21 @@ def main() -> int:
     if "pytest" not in workflow or "pip-audit" not in workflow:
         fail("production_ci_controls_missing")
 
-    absent = [name for name in REQUIRED_EVIDENCE if not (EVIDENCE_DIR / name).exists()]
+    resolved = {name: resolve_evidence_path(name) for name in REQUIRED_EVIDENCE}
+    absent = [name for name, path in resolved.items() if path is None]
     print("MARSEL_RELEASE_READINESS=FAIL_CLOSED")
     print("PRODUCTION_WRITE_AUTHORIZED=false")
     print("REPOSITORY_CONTROLS=PASS")
+    print("EVIDENCE_DIR=" + str(EVIDENCE_DIR))
     if absent:
-        print("EXTERNAL_EVIDENCE=NOT_PRESENT")
+        print("EXTERNAL_EVIDENCE=INCOMPLETE")
         print("MISSING_EVIDENCE=" + ",".join(absent))
         print("RESULT=NOT_PRODUCTION_READY")
         return 2
 
-    for name in REQUIRED_EVIDENCE:
-        validate_evidence(EVIDENCE_DIR / name)
+    for name, path in resolved.items():
+        assert path is not None
+        validate_evidence(path)
 
     print("EXTERNAL_EVIDENCE=PRESENT_AND_VALID")
     print("RESULT=RUN_PRODUCTION_GATE_FOR_FINAL_DECISION")
