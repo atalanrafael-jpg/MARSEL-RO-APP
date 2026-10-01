@@ -58,6 +58,8 @@ jobs:
           PY
       - name: Release readiness check with real external evidence
         if: github.event_name != 'pull_request'
+        env:
+          MARSEL_EVIDENCE_DIR: ${{ github.event_name == 'workflow_run' && 'artifacts/evidence' || 'evidence' }}
         run: python scripts/marsel_release_readiness_v1.py
       - name: PR-safe release evidence policy
         if: github.event_name == 'pull_request'
