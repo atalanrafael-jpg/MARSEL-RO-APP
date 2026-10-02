@@ -75,7 +75,21 @@ with httpx.Client(timeout=20) as c:
         pages_read = 0
         while page <= MAX_PAGES:
             try:
-                r = c.get(BASE + p, headers=headers, params={"page": page, "limit": PAGE_SIZE})
+                params = {"page": page, "limit": PAGE_SIZE}
+                if p == "/company/work-schedule/days":
+                    # This documented GET requires an explicit date window.
+                    # Keep the window configurable and deterministic; it does
+                    # not grant or perform any mutation capability.
+                    date_from = os.environ.get("ROAPP_WORK_SCHEDULE_DATE_FROM", "")
+                    date_to = os.environ.get("ROAPP_WORK_SCHEDULE_DATE_TO", "")
+                    if not date_from or not date_to:
+                        raise RuntimeError(
+                            "ROAPP_WORK_SCHEDULE_DATE_FROM and "
+                            "ROAPP_WORK_SCHEDULE_DATE_TO are required for "
+                            "/company/work-schedule/days"
+                        )
+                    params.update({"date_from": date_from, "date_to": date_to})
+                r = c.get(BASE + p, headers=headers, params=params)
                 if r.status_code != 200:
                     endpoint_ok = False
                     endpoint_error = f"HTTP {r.status_code}: {r.text[:500]}"
