@@ -67,6 +67,8 @@ jobs:
           ROAPP_API_BASE: https://api.roapp.io/v2
           MARSEL_INVENTORY_INPUT: marsel-api-inventory-v20-31.json
           MARSEL_FULL_BACKUP_OUTPUT: marsel-full-readonly-backup-v1.json
+          ROAPP_WORK_SCHEDULE_DATE_FROM: "2026-01-01"
+          ROAPP_WORK_SCHEDULE_DATE_TO: "2026-12-31"
           MARSEL_MAX_PAGES_PER_ENDPOINT: "10000"
           ROAPP_PAGE_SIZE: "50"
           ROAPP_MIN_REQUEST_INTERVAL: "0.34"
