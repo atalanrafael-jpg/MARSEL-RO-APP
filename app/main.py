@@ -8,15 +8,30 @@ import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from .agents.repair_estimator import RepairEstimator
 from .audit import audit_order_pages
+from .business_models import Client, Item, RepairStatus
 from .config import settings
 from .mcp_auth import JWTTokenVerifier
 from .mcp_server import create_mcp_server
 from .observability import observability_middleware
 from .roapp_client import RoAppClient
+from .services.customer_service import CustomerService
+from .services.dashboard_service import DashboardService
+from .services.material_service import MaterialCatalog
+from .services.notification_service import NotificationService
+from .services.quality_service import QualityService
+from .services.repair_service import RepairService
 
 
 mcp_http = None
+repair_service = RepairService()
+material_catalog = MaterialCatalog()
+dashboard_service = DashboardService()
+quality_service = QualityService()
+notification_service = NotificationService()
+customer_service = CustomerService(repair_service)
+repair_estimator = RepairEstimator()
 
 if settings.mcp_http_enabled:
     missing = [
@@ -104,8 +119,6 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid authentication")
 
-    # AuthN is not enough for the Owner MVP: require an active application role.
-    # The role lives in public.profiles and is protected by RLS.
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             profile_response = await client.get(
@@ -151,6 +164,142 @@ def ready():
     }
 
 
+@app.get("/repairs")
+def list_repairs():
+    return [repair.to_dict() for repair in repair_service.list_repairs()]
+
+
+@app.get("/repairs/{repair_id}")
+def get_repair(repair_id: str):
+    return repair_service.get_repair(repair_id).to_dict()
+
+
+@app.post("/repairs")
+def create_repair(payload: dict):
+    client = Client(
+        id=payload.get("client_id") or "client-1",
+        full_name=payload.get("client_name") or "Unknown client",
+        phone=payload.get("client_phone") or "",
+        email=payload.get("client_email") or "",
+        notes=payload.get("client_notes") or "",
+    )
+    item = Item(
+        id=payload.get("item_id") or "item-1",
+        client_id=client.id,
+        category=payload.get("category") or "jewelry",
+        subtype=payload.get("subtype") or "ring",
+        material=payload.get("material") or "gold",
+        stones=payload.get("stones") or "",
+        description=payload.get("description") or "",
+        condition_received=payload.get("condition") or "",
+        serial_number=payload.get("serial_number") or "",
+    )
+    repair = repair_service.create_repair(
+        client=client,
+        item=item,
+        status=payload.get("status") or RepairStatus.RECEIVED,
+        description=payload.get("description") or "",
+        due_at=payload.get("due_at"),
+        estimate_cost=payload.get("estimate_cost"),
+    )
+    return repair.to_dict()
+
+
+@app.post("/repairs/{repair_id}/status")
+def update_repair_status(repair_id: str, payload: dict):
+    repair = repair_service.update_status(
+        repair_id,
+        status=payload.get("status") or RepairStatus.ASSESSED,
+        note=payload.get("note") or "Status updated",
+    )
+    return repair.to_dict()
+
+
+@app.post("/repairs/{repair_id}/estimate")
+def repair_estimate(repair_id: str, payload: dict):
+    repair = repair_service.get_repair(repair_id)
+    estimate = repair_estimator.estimate(
+        category=repair.item.category,
+        material=repair.item.material,
+        description=payload.get("description") or repair.description,
+    )
+    return estimate.to_dict()
+
+
+@app.post("/repairs/{repair_id}/quality")
+def add_quality_check(repair_id: str, payload: dict):
+    check = quality_service.add_check(
+        repair_id,
+        result=payload.get("result") or "review_required",
+        notes=payload.get("notes") or "",
+        checked_by=payload.get("checked_by") or "owner",
+    )
+    return check.to_dict()
+
+
+@app.get("/repairs/{repair_id}/quality")
+def list_quality_checks(repair_id: str):
+    return [check.to_dict() for check in quality_service.list_checks(repair_id)]
+
+
+@app.post("/repairs/{repair_id}/notify")
+def send_notification(repair_id: str, payload: dict):
+    note = notification_service.send(
+        repair_id=repair_id,
+        channel=payload.get("channel") or "email",
+        template=payload.get("template") or "status_update",
+        message=payload.get("message") or "Repair status updated.",
+    )
+    return note.to_dict()
+
+
+@app.get("/repairs/summary")
+def repairs_summary():
+    return dashboard_service.build_summary(repair_service.list_repairs(), material_catalog.list_materials())
+
+
+@app.get("/materials")
+def list_materials():
+    return [m.to_dict() for m in material_catalog.list_materials()]
+
+
+@app.post("/materials")
+def create_material(payload: dict):
+    material = material_catalog.create_material(
+        name=payload.get("name") or "Material",
+        category=payload.get("category") or "metal",
+        unit=payload.get("unit") or "g",
+        stock=payload.get("stock") or 0,
+        reorder_level=payload.get("reorder_level") or 0,
+        cost_per_unit=payload.get("cost_per_unit") or 0,
+    )
+    return material.to_dict()
+
+
+@app.get("/customers")
+def list_customers():
+    return [
+        {"client_id": repair.client.id, "full_name": repair.client.full_name, "email": repair.client.email}
+        for repair in repair_service.list_repairs()
+    ]
+
+
+@app.post("/customers")
+def create_customer(payload: dict):
+    customer = customer_service.register_customer(
+        client_id=payload.get("client_id") or "client-1",
+        full_name=payload.get("full_name") or "Unknown client",
+        phone=payload.get("phone") or "",
+        email=payload.get("email") or "",
+    )
+    return customer.to_dict()
+
+
+@app.get("/customers/{client_id}/status")
+def customer_status(client_id: str):
+    return customer_service.customer_status(client_id)
+
+
 @app.get("/app", response_class=HTMLResponse)
 def owner_app():
     from pathlib import Path
@@ -182,14 +331,11 @@ async def orders(page: int = Query(1, ge=1)):
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="RO App API temporarily unavailable") from exc
     except Exception as exc:
-        # Do not expose upstream URLs, exception text, or configuration details
-        # through the public API response.
         raise HTTPException(status_code=502, detail="RO App API request failed") from exc
 
 
 @app.get("/roapp/audit/orders", dependencies=[Depends(require_internal_auth)])
 async def audit_orders(max_pages: int = Query(10, ge=1, le=100)):
-    """Read-only audit of order pages; no RO App data is changed."""
     try:
         pages = await RoAppClient().get_orders_pages(max_pages)
         return audit_order_pages(pages)
