@@ -15,8 +15,16 @@ from .mcp_server import create_mcp_server
 from .observability import observability_middleware
 from .roapp_client import RoAppClient
 
+from .business_models import Client, Item, Repair, RepairStatus
+from .services.dashboard_service import DashboardService
+from .services.material_service import MaterialCatalog
+from .services.repair_service import RepairService
+
 
 mcp_http = None
+repair_service = RepairService()
+material_catalog = MaterialCatalog()
+dashboard_service = DashboardService()
 
 if settings.mcp_http_enabled:
     missing = [
@@ -104,8 +112,6 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid authentication")
 
-    # AuthN is not enough for the Owner MVP: require an active application role.
-    # The role lives in public.profiles and is protected by RLS.
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             profile_response = await client.get(
@@ -151,6 +157,70 @@ def ready():
     }
 
 
+@app.get("/repairs")
+def list_repairs():
+    """Return all known repairs in memory for the owner dashboard."""
+    return [repair.to_dict() for repair in repair_service.list_repairs()]
+
+
+@app.post("/repairs")
+def create_repair(payload: dict):
+    """Create a repair record for the intake workflow."""
+    client = Client(
+        id=payload.get("client_id") or "client-1",
+        full_name=payload.get("client_name") or "Unknown client",
+        phone=payload.get("client_phone") or "",
+        email=payload.get("client_email") or "",
+        notes=payload.get("client_notes") or "",
+    )
+    item = Item(
+        id=payload.get("item_id") or "item-1",
+        client_id=client.id,
+        category=payload.get("category") or "jewelry",
+        subtype=payload.get("subtype") or "ring",
+        material=payload.get("material") or "gold",
+        stones=payload.get("stones") or "",
+        description=payload.get("description") or "",
+        condition_received=payload.get("condition") or "",
+        serial_number=payload.get("serial_number") or "",
+    )
+    repair = repair_service.create_repair(
+        client=client,
+        item=item,
+        status=payload.get("status") or RepairStatus.RECEIVED,
+        description=payload.get("description") or "",
+        due_at=payload.get("due_at"),
+        estimate_cost=payload.get("estimate_cost"),
+    )
+    return repair.to_dict()
+
+
+@app.get("/repairs/summary")
+def repairs_summary():
+    """Return KPI summary for owner dashboard."""
+    return dashboard_service.build_summary(repair_service.list_repairs(), material_catalog.list_materials())
+
+
+@app.get("/materials")
+def list_materials():
+    """Return materials catalog."""
+    return [m.to_dict() for m in material_catalog.list_materials()]
+
+
+@app.post("/materials")
+def create_material(payload: dict):
+    """Add stock item to material catalog."""
+    material = material_catalog.create_material(
+        name=payload.get("name") or "Material",
+        category=payload.get("category") or "metal",
+        unit=payload.get("unit") or "g",
+        stock=payload.get("stock") or 0,
+        reorder_level=payload.get("reorder_level") or 0,
+        cost_per_unit=payload.get("cost_per_unit") or 0,
+    )
+    return material.to_dict()
+
+
 @app.get("/app", response_class=HTMLResponse)
 def owner_app():
     from pathlib import Path
@@ -182,14 +252,11 @@ async def orders(page: int = Query(1, ge=1)):
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="RO App API temporarily unavailable") from exc
     except Exception as exc:
-        # Do not expose upstream URLs, exception text, or configuration details
-        # through the public API response.
         raise HTTPException(status_code=502, detail="RO App API request failed") from exc
 
 
 @app.get("/roapp/audit/orders", dependencies=[Depends(require_internal_auth)])
 async def audit_orders(max_pages: int = Query(10, ge=1, le=100)):
-    """Read-only audit of order pages; no RO App data is changed."""
     try:
         pages = await RoAppClient().get_orders_pages(max_pages)
         return audit_order_pages(pages)
