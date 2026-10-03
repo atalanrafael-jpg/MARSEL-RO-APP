@@ -2,5 +2,5 @@
 # Kept separate from the server runtime so MARSEL ROAPP production does not
 # acquire a platform-specific dependency by default.
 coreai-core==1.0.0b2
-coreai-torch==0.4.2
+coreai-torch==0.4.3
 torch>=2.8.0,<2.12
