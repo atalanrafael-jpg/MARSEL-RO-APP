@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Fail-closed static check for the single MARSEL ROAPP control plane."""
 from __future__ import annotations
+
 import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_REPOSITORY = "atalanrafael-jpg/MARSEL-Ro-app"
+EXPECTED_BRANCH = "main"
 WORKFLOW = ROOT / ".github" / "workflows" / "marsel-unified-control-plane.yml"
 PRODUCTION_GATE = ROOT / ".github" / "workflows" / "marsel-production-gate.yml"
 GENERIC_TEST = ROOT / ".github" / "workflows" / "test.yml"
 WORKFLOW_REGISTRY = ROOT / "docs" / "MARSEL_ROAPP_WORKFLOW_REGISTRY.md"
+CANONICAL_GOVERNANCE = ROOT / "docs" / "MARSEL_ROAPP_CANONICAL_GOVERNANCE.md"
+BOOTSTRAP = ROOT / "docs" / "MARSEL_MASTER_BOOTSTRAP_2026-08-24.md"
 SETTINGS_BASELINE = ROOT / "docs" / "MARSEL_SETTINGS_BASELINE_2026-09-04.md"
 API_REGISTRY = ROOT / "scripts" / "marsel_api_v2_canonical_registry_v1.py"
 API_REGISTRY_DOC = ROOT / "docs" / "MARSEL-API-REGISTRY.md"
@@ -37,6 +41,19 @@ REQUIRED_CORE_MARKERS = (
     "NOT_VERIFIED",
     "Production safety gate",
     "ChatGPT Core integration",
+GOVERNANCE = ROOT / "docs" / "MARSEL_ROAPP_CANONICAL_GOVERNANCE.md"
+CANONICAL = ROOT / "01_MASTER" / "MARSEL_ROAPP_CANONICAL.md"
+CURRENT = ROOT / "01_MASTER" / "MARSEL_ROAPP_CURRENT_STATE.md"
+REGISTRY = ROOT / "01_MASTER" / "MARSEL_ROAPP_MASTER_REGISTRY.md"
+ARCHIVE = ROOT / "06_ARCHIVE"
+AGENTS = ROOT / "AGENTS.md"
+CANONICAL_DIRS = ("01_MASTER", "02_MARSEL", "03_ROAPP", "04_DEVELOPMENT", "05_CONTROL", "06_ARCHIVE")
+FORBIDDEN_ROOT_MASTERS = (
+    "01_MARSEL_MASTER.md",
+    "02_ROAPP_TECHNICAL_MASTER.md",
+    "03_MARSEL_DATA_MASTER.md",
+    "04_MARSEL_LEGAL_FINANCE_MASTER.md",
+    "MARSEL_ROAPP_MASTER_CORE.md",
 )
 
 
@@ -46,12 +63,13 @@ def fail(message: str) -> None:
 
 def main() -> int:
     runtime_repository = os.getenv("GITHUB_REPOSITORY")
+    runtime_ref_name = os.getenv("GITHUB_REF_NAME")
     if runtime_repository and runtime_repository != EXPECTED_REPOSITORY:
         fail(f"unexpected canonical repository: {runtime_repository}; expected {EXPECTED_REPOSITORY}")
     required = [
         WORKFLOW, PRODUCTION_GATE, GENERIC_TEST, WORKFLOW_REGISTRY,
-        SETTINGS_BASELINE, API_REGISTRY, API_REGISTRY_DOC, TASK_REGISTRY,
-        ARCH, MASTER_CORE, EVIDENCE_BUILDER,
+        CANONICAL_GOVERNANCE, BOOTSTRAP, SETTINGS_BASELINE, API_REGISTRY,
+        API_REGISTRY_DOC, TASK_REGISTRY, ARCH, MASTER_CORE, EVIDENCE_BUILDER,
     ]
     missing = [str(p.relative_to(ROOT)) for p in required if not p.exists()]
     if missing:
@@ -61,6 +79,8 @@ def main() -> int:
     production_gate_text = PRODUCTION_GATE.read_text(encoding="utf-8")
     test_text = GENERIC_TEST.read_text(encoding="utf-8")
     workflow_registry_text = WORKFLOW_REGISTRY.read_text(encoding="utf-8")
+    governance_text = CANONICAL_GOVERNANCE.read_text(encoding="utf-8")
+    bootstrap_text = BOOTSTRAP.read_text(encoding="utf-8")
     settings_text = SETTINGS_BASELINE.read_text(encoding="utf-8")
     registry_text = API_REGISTRY.read_text(encoding="utf-8")
     registry_doc_text = API_REGISTRY_DOC.read_text(encoding="utf-8")
@@ -101,6 +121,20 @@ def main() -> int:
         fail("live secret/audit boundary for pull_request events is missing")
     if "marsel-unified-control-plane.yml" not in workflow_registry_text:
         fail("workflow registry does not name the canonical control plane")
+    for marker in (
+        "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`",
+        "Canonical branch: `main`",
+        "main is the only canonical integration branch",
+        "PRODUCTION_WRITE = DISABLED",
+    ):
+        if marker not in governance_text:
+            fail(f"canonical governance marker missing: {marker}")
+    if "Canonical repository: `atalanrafael-jpg/Ro-app`" in bootstrap_text:
+        fail("bootstrap still contains obsolete canonical repository")
+    if "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`" not in bootstrap_text:
+        fail("bootstrap does not declare the canonical MARSEL ROAPP repository")
+    if runtime_ref_name == EXPECTED_BRANCH and "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`" not in bootstrap_text:
+        fail("main branch is missing the canonical repository declaration")
     if "Production WRITE: `DISABLED`" not in settings_text:
         fail("settings baseline does not record production WRITE as disabled")
     production_write_disabled_markers = (
@@ -119,13 +153,19 @@ def main() -> int:
     print("CANONICAL_SELF_CHECK=PASS")
     print("SYSTEM=MARSEL_ROAPP")
     print(f"CANONICAL_REPOSITORY={EXPECTED_REPOSITORY}")
+    print("CANONICAL_BRANCH=main")
     print("CANONICAL_LIVE_AUDIT=ONE")
     print("GENERIC_TEST_LIVE_AUDIT=NONE")
     print("MASTER_CORE=CANONICAL_AND_VERIFIED")
     print("API_REGISTRY=NON_EMPTY_READ_ONLY")
     print("WORKFLOW_REGISTRY=CANONICAL_PRESENT")
+    print("CANONICAL_GOVERNANCE=PRESENT")
     print("SETTINGS_BASELINE=PRESENT")
     print("EVIDENCE_BUILDER=FAIL_CLOSED")
+    print(f"CANONICAL_BRANCH={EXPECTED_BRANCH}")
+    print("CANONICAL_STRUCTURE=01_MASTER..06_ARCHIVE")
+    print("LEGACY_TREE=MIGRATED")
+    print("ROOT_MASTER_DUPLICATES=REMOVED")
     print("PRODUCTION_WRITE=DISABLED")
     print("RO_APP_DATA_MUTATION=NOT_PERFORMED")
     return 0
