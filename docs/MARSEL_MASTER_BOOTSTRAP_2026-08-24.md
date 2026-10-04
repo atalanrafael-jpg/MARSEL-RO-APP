@@ -12,6 +12,7 @@ Establish a fresh canonical control point for MARSEL / ROAPP without changing RO
 - Business contour: MARSEL
 - Technology contour: ROAPP
 - Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`
+- Canonical branch: `main`
 - Current canonical branch: `main-MARSEL-ROAPP`
 - `main` does not currently exist and is not authoritative.
 - Canonical live audit workflow: `.github/workflows/marsel-unified-control-plane.yml`
@@ -26,6 +27,12 @@ Establish a fresh canonical control point for MARSEL / ROAPP without changing RO
 - Production WRITE is disabled until backup/export, restore integrity, reconciliation, full READ-ONLY inventory, duplicate/orphan/reference analysis, dry-run, idempotency, rollback and post-write verification are directly evidenced.
 
 ## Canonical governance
+
+All branches, tests, runs, deployments, implementations, improvements, repositories, workflows, integrations, applications and documentation are subordinate to the single MARSEL ROAPP control plane. `main` is the only canonical integration branch; temporary branches are working branches and are not independent sources of truth.
+
+See `docs/MARSEL_ROAPP_CANONICAL_GOVERNANCE.md` for the enforced project-wide rules.
+
+## Current open gates
 
 All branches, tests, runs, deployments, implementations, improvements, repositories, workflows, integrations, applications and documentation are subordinate to the single MARSEL ROAPP control plane. `main-MARSEL-ROAPP` is the canonical integration branch; temporary branches are working branches and are not independent sources of truth.
 

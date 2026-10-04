@@ -4,6 +4,7 @@ from typing import Any
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
+from mcp.server.mcpserver import MCPServer
 from mcp.server import MCPServer
 from pydantic import AnyHttpUrl
 
@@ -12,6 +13,7 @@ from .config import settings
 from .roapp_client import RoAppClient
 
 
+MCP_NAME = "MARSEL RO App"
 MCP_NAME = "MARSEL ROAPP"
 MCP_INSTRUCTIONS = (
     "Read-only access to the MARSEL ROAPP connector. "
