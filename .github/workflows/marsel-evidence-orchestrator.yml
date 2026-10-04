@@ -1,0 +1,137 @@
+name: MARSEL Evidence Orchestrator
+
+on:
+  workflow_run:
+    workflows: ["MARSEL Unified Control Plane"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: marsel-evidence-orchestrator-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download unified control-plane evidence
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          name: marsel-unified-evidence
+          path: evidence/unified
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build supporting evidence inventory
+        env:
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          candidates = list(Path('evidence').rglob('*.json'))
+          entries = []
+          invalid = []
+          unsafe = []
+
+          for p in sorted(candidates):
+              raw = p.read_bytes()
+              try:
+                  data = json.loads(raw)
+              except Exception as exc:
+                  invalid.append(str(p))
+                  entries.append({'path': str(p), 'status': 'INVALID_JSON', 'error': str(exc)})
+                  continue
+
+              if not isinstance(data, dict):
+                  invalid.append(str(p))
+                  entries.append({'path': str(p), 'status': 'INVALID_SCHEMA'})
+                  continue
+
+              safety_errors = []
+              if data.get('readonly') is not True:
+                  safety_errors.append('readonly must be true')
+              if data.get('write_requests_made') != 0:
+                  safety_errors.append('write_requests_made must be 0')
+              if data.get('ro_app_data_mutated') is not False:
+                  safety_errors.append('ro_app_data_mutated must be false')
+
+              if safety_errors:
+                  unsafe.append(str(p))
+
+              entries.append({
+                  'path': str(p),
+                  'status': 'UNSAFE' if safety_errors else 'PRESENT',
+                  'sha256': hashlib.sha256(raw).hexdigest(),
+                  'readonly': data.get('readonly'),
+                  'write_requests_made': data.get('write_requests_made'),
+                  'ro_app_data_mutated': data.get('ro_app_data_mutated'),
+                  'generated_at': data.get('generated_at'),
+                  'safety_errors': safety_errors,
+              })
+
+          report = {
+              'schema': 'marsel-supporting-evidence-index/v3',
+              'system': 'MARSEL Evidence Orchestrator',
+              'role': 'SUPPORTING_INDEXER_NOT_PRODUCTION_GATE',
+              'generated_at': datetime.now(timezone.utc).isoformat(),
+              'event': os.environ.get('EVENT_NAME'),
+              'upstream_run_id': os.environ.get('UPSTREAM_RUN_ID') or None,
+              'upstream_sha': os.environ.get('UPSTREAM_SHA') or os.environ.get('GITHUB_SHA'),
+              'present_count': sum(x['status'] == 'PRESENT' for x in entries),
+              'invalid': invalid,
+              'unsafe': unsafe,
+              'entries': entries,
+              'production_write_enabled': False,
+              'production_gate_authority': 'marsel-production-gate.yml',
+          }
+          Path('evidence').mkdir(exist_ok=True)
+          Path('evidence/evidence-index.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload supporting evidence index
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: marsel-evidence-index
+          path: evidence/evidence-index.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Report supporting evidence safety findings
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('evidence/evidence-index.json').read_text(encoding='utf-8'))
+          if report['invalid']:
+              print('SUPPORTING_EVIDENCE=INVALID_JSON_OR_SCHEMA')
+              print('INVALID=' + ','.join(report['invalid']))
+              raise SystemExit(1)
+          if report['unsafe']:
+              print('SUPPORTING_EVIDENCE=UNSAFE_NON_AUTHORITY_FINDINGS')
+              print('UNSAFE=' + ','.join(report['unsafe']))
+              print('NOTE=Evidence Orchestrator is an indexer only; production-gate authority remains marsel-production-gate.yml.')
+          else:
+              print('SUPPORTING_EVIDENCE=SAFE')
+          print('PRODUCTION_GATE_AUTHORITY=marsel-production-gate.yml')
+          PY

@@ -1,5 +1,8 @@
 # Resolved dependency set; refreshed 2026-08-29 for MCP SDK v2 migration.
 # Production builds consume this file; direct Google dependencies are pinned here.
+# Resolved dependency set; refreshed 2026-09-17 for MARSEL ROAPP control-agent consistency.
+# Production builds consume this file; direct Google and MCP dependencies are pinned here.
+# CI verification gate: confirm the full dependency graph before production release.
 PyJWT==2.13.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
@@ -14,7 +17,7 @@ cryptography==50.0.0
 docstring-parser==0.18.0
 fastapi==0.141.1
 google-api-python-client==2.199.0
-google-auth==2.56.3
+google-auth==2.57.1
 google-auth-oauthlib==1.4.0
 h11==0.16.0
 httpcore==1.0.9
@@ -30,6 +33,9 @@ jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 mcp==2.1.0
 openai==3.3.1
+mcp==2.1.1
+openai==3.14.1
+openai-agents==0.22.0
 packaging==26.3
 pluggy==1.6.0
 pycparser==3.0
@@ -56,4 +62,4 @@ urllib3==2.7.0
 uvicorn==0.52.4
 uvloop==0.22.1
 watchfiles==1.2.0
-websockets==17.0.1
+websockets==16.1.1
