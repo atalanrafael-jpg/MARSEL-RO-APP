@@ -12,6 +12,20 @@ class Settings(BaseSettings):
     roapp_max_retries: int = 3
     roapp_retry_base_seconds: float = 0.75
 
+    # Protects the connector's RO App proxy/audit endpoints.
+    # This is deliberately separate from ROAPP_API_KEY: the former authorizes
+    # callers to MARSEL ROAPP, while the latter authenticates MARSEL to RO App.
+    marsel_internal_api_key: str = ""
+
+    # Automation mode: fail-closed / read-only by default
+    automation_mode_enabled: bool = False
+    automation_mode_name: str = "READ_ONLY"
+    automation_allow_write: bool = False
+    automation_allow_external_calls: bool = False
+    automation_max_actions_per_run: int = 1
+    automation_require_evidence: bool = True
+    automation_require_approval: bool = True
+
     # OpenAI Ads Conversions API credentials must come from Ads Manager > Conversions.
     # Never use the general OpenAI Platform API key for this integration.
     openai_ads_pixel_id: str = ""
@@ -35,6 +49,8 @@ class Settings(BaseSettings):
     mcp_auth_issuer: str = ""
     mcp_auth_jwks_url: str = ""
     mcp_required_scopes: list[str] = Field(default_factory=list)
+    supabase_url: str = "https://wdbytmvzuensuuoquvav.supabase.co"
+    supabase_publishable_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

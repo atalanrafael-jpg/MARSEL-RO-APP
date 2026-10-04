@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed static check for the single MARSEL ROAPP control plane."""
 from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -40,6 +41,19 @@ REQUIRED_CORE_MARKERS = (
     "NOT_VERIFIED",
     "Production safety gate",
     "ChatGPT Core integration",
+GOVERNANCE = ROOT / "docs" / "MARSEL_ROAPP_CANONICAL_GOVERNANCE.md"
+CANONICAL = ROOT / "01_MASTER" / "MARSEL_ROAPP_CANONICAL.md"
+CURRENT = ROOT / "01_MASTER" / "MARSEL_ROAPP_CURRENT_STATE.md"
+REGISTRY = ROOT / "01_MASTER" / "MARSEL_ROAPP_MASTER_REGISTRY.md"
+ARCHIVE = ROOT / "06_ARCHIVE"
+AGENTS = ROOT / "AGENTS.md"
+CANONICAL_DIRS = ("01_MASTER", "02_MARSEL", "03_ROAPP", "04_DEVELOPMENT", "05_CONTROL", "06_ARCHIVE")
+FORBIDDEN_ROOT_MASTERS = (
+    "01_MARSEL_MASTER.md",
+    "02_ROAPP_TECHNICAL_MASTER.md",
+    "03_MARSEL_DATA_MASTER.md",
+    "04_MARSEL_LEGAL_FINANCE_MASTER.md",
+    "MARSEL_ROAPP_MASTER_CORE.md",
 )
 
 
@@ -148,6 +162,10 @@ def main() -> int:
     print("CANONICAL_GOVERNANCE=PRESENT")
     print("SETTINGS_BASELINE=PRESENT")
     print("EVIDENCE_BUILDER=FAIL_CLOSED")
+    print(f"CANONICAL_BRANCH={EXPECTED_BRANCH}")
+    print("CANONICAL_STRUCTURE=01_MASTER..06_ARCHIVE")
+    print("LEGACY_TREE=MIGRATED")
+    print("ROOT_MASTER_DUPLICATES=REMOVED")
     print("PRODUCTION_WRITE=DISABLED")
     print("RO_APP_DATA_MUTATION=NOT_PERFORMED")
     return 0

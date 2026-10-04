@@ -1,18 +1,37 @@
 from __future__ import annotations
 
+import secrets
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Query
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import HTMLResponse, JSONResponse
 
+from .agents.repair_estimator import RepairEstimator
 from .audit import audit_order_pages
+from .business_models import Client, Item, RepairStatus
 from .config import settings
 from .mcp_auth import JWTTokenVerifier
 from .mcp_server import create_mcp_server
+from .observability import observability_middleware
 from .roapp_client import RoAppClient
+from .services.customer_service import CustomerService
+from .services.dashboard_service import DashboardService
+from .services.material_service import MaterialCatalog
+from .services.notification_service import NotificationService
+from .services.quality_service import QualityService
+from .services.repair_service import RepairService
 
 
 mcp_http = None
+repair_service = RepairService()
+material_catalog = MaterialCatalog()
+dashboard_service = DashboardService()
+quality_service = QualityService()
+notification_service = NotificationService()
+customer_service = CustomerService(repair_service)
+repair_estimator = RepairEstimator()
 
 if settings.mcp_http_enabled:
     missing = [
@@ -49,51 +68,274 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="MARSEL RO App Connector",
-    version="0.4.0",
+    title="MARSEL ROAPP Connector",
+    version="0.5.0",
     lifespan=lifespan,
 )
+app.middleware("http")(observability_middleware)
 
 if mcp_http is not None:
     app.mount("/mcp", mcp_http.streamable_http_app())
 
 
+def require_internal_auth(x_marsel_api_key: str | None = Header(default=None)) -> None:
+    """Authorize callers to the MARSEL connector without exposing RO App credentials."""
+    configured = settings.marsel_internal_api_key
+    if not configured:
+        raise HTTPException(status_code=503, detail="MARSEL connector authentication is not configured")
+    if not x_marsel_api_key or not secrets.compare_digest(x_marsel_api_key, configured):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+async def require_supabase_user(authorization: str | None = Header(default=None)) -> dict:
+    """Verify the caller's Supabase Auth access token against the Auth service."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    token = authorization[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    if not settings.supabase_url or not settings.supabase_publishable_key:
+        raise HTTPException(status_code=503, detail="Supabase authentication is not configured")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{settings.supabase_url.rstrip('/')}/auth/v1/user",
+                headers={
+                    "apikey": settings.supabase_publishable_key,
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired authentication")
+
+    data = response.json()
+    user_id = data.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid authentication")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            profile_response = await client.get(
+                f"{settings.supabase_url.rstrip('/')}/rest/v1/profiles",
+                params={"id": f"eq.{user_id}", "select": "role,active"},
+                headers={
+                    "apikey": settings.supabase_publishable_key,
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="Authorization service unavailable") from exc
+
+    if profile_response.status_code != 200:
+        raise HTTPException(status_code=403, detail="Application access is not available")
+
+    profiles = profile_response.json()
+    profile = profiles[0] if profiles else None
+    if not profile or profile.get("active") is not True:
+        raise HTTPException(status_code=403, detail="Application access is not available")
+
+    role = profile.get("role")
+    if role not in {"owner", "admin", "employee"}:
+        raise HTTPException(status_code=403, detail="Insufficient application role")
+
+    data["app_role"] = role
+    return data
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "marsel-roapp-connector", "version": "0.4.0"}
+    return {"status": "ok", "service": "marsel-roapp-connector", "version": app.version}
 
 
 @app.get("/ready")
 def ready():
-    """Configuration readiness check; does not contact or mutate RO App."""
+    """Non-sensitive service readiness check; never reports secret presence."""
     return {
-        "status": "ready" if settings.roapp_api_key else "not_configured",
-        "api_base_configured": bool(settings.roapp_base_url),
-        "api_key_configured": bool(settings.roapp_api_key),
-        "timeout_seconds": settings.roapp_timeout_seconds,
-        "max_retries": settings.roapp_max_retries,
+        "status": "ready" if settings.roapp_base_url else "not_configured",
+        "service": "marsel-roapp-connector",
+        "version": app.version,
         "mcp_http_enabled": settings.mcp_http_enabled,
-        "mcp_auth_configured": bool(
-            settings.mcp_auth_issuer and settings.mcp_resource_server_url
-        ),
     }
 
 
-@app.get("/roapp/orders")
+@app.get("/repairs")
+def list_repairs():
+    return [repair.to_dict() for repair in repair_service.list_repairs()]
+
+
+@app.get("/repairs/{repair_id}")
+def get_repair(repair_id: str):
+    return repair_service.get_repair(repair_id).to_dict()
+
+
+@app.post("/repairs")
+def create_repair(payload: dict):
+    client = Client(
+        id=payload.get("client_id") or "client-1",
+        full_name=payload.get("client_name") or "Unknown client",
+        phone=payload.get("client_phone") or "",
+        email=payload.get("client_email") or "",
+        notes=payload.get("client_notes") or "",
+    )
+    item = Item(
+        id=payload.get("item_id") or "item-1",
+        client_id=client.id,
+        category=payload.get("category") or "jewelry",
+        subtype=payload.get("subtype") or "ring",
+        material=payload.get("material") or "gold",
+        stones=payload.get("stones") or "",
+        description=payload.get("description") or "",
+        condition_received=payload.get("condition") or "",
+        serial_number=payload.get("serial_number") or "",
+    )
+    repair = repair_service.create_repair(
+        client=client,
+        item=item,
+        status=payload.get("status") or RepairStatus.RECEIVED,
+        description=payload.get("description") or "",
+        due_at=payload.get("due_at"),
+        estimate_cost=payload.get("estimate_cost"),
+    )
+    return repair.to_dict()
+
+
+@app.post("/repairs/{repair_id}/status")
+def update_repair_status(repair_id: str, payload: dict):
+    repair = repair_service.update_status(
+        repair_id,
+        status=payload.get("status") or RepairStatus.ASSESSED,
+        note=payload.get("note") or "Status updated",
+    )
+    return repair.to_dict()
+
+
+@app.post("/repairs/{repair_id}/estimate")
+def repair_estimate(repair_id: str, payload: dict):
+    repair = repair_service.get_repair(repair_id)
+    estimate = repair_estimator.estimate(
+        category=repair.item.category,
+        material=repair.item.material,
+        description=payload.get("description") or repair.description,
+    )
+    return estimate.to_dict()
+
+
+@app.post("/repairs/{repair_id}/quality")
+def add_quality_check(repair_id: str, payload: dict):
+    check = quality_service.add_check(
+        repair_id,
+        result=payload.get("result") or "review_required",
+        notes=payload.get("notes") or "",
+        checked_by=payload.get("checked_by") or "owner",
+    )
+    return check.to_dict()
+
+
+@app.get("/repairs/{repair_id}/quality")
+def list_quality_checks(repair_id: str):
+    return [check.to_dict() for check in quality_service.list_checks(repair_id)]
+
+
+@app.post("/repairs/{repair_id}/notify")
+def send_notification(repair_id: str, payload: dict):
+    note = notification_service.send(
+        repair_id=repair_id,
+        channel=payload.get("channel") or "email",
+        template=payload.get("template") or "status_update",
+        message=payload.get("message") or "Repair status updated.",
+    )
+    return note.to_dict()
+
+
+@app.get("/repairs/summary")
+def repairs_summary():
+    return dashboard_service.build_summary(repair_service.list_repairs(), material_catalog.list_materials())
+
+
+@app.get("/materials")
+def list_materials():
+    return [m.to_dict() for m in material_catalog.list_materials()]
+
+
+@app.post("/materials")
+def create_material(payload: dict):
+    material = material_catalog.create_material(
+        name=payload.get("name") or "Material",
+        category=payload.get("category") or "metal",
+        unit=payload.get("unit") or "g",
+        stock=payload.get("stock") or 0,
+        reorder_level=payload.get("reorder_level") or 0,
+        cost_per_unit=payload.get("cost_per_unit") or 0,
+    )
+    return material.to_dict()
+
+
+@app.get("/customers")
+def list_customers():
+    return [
+        {"client_id": repair.client.id, "full_name": repair.client.full_name, "email": repair.client.email}
+        for repair in repair_service.list_repairs()
+    ]
+
+
+@app.post("/customers")
+def create_customer(payload: dict):
+    customer = customer_service.register_customer(
+        client_id=payload.get("client_id") or "client-1",
+        full_name=payload.get("full_name") or "Unknown client",
+        phone=payload.get("phone") or "",
+        email=payload.get("email") or "",
+    )
+    return customer.to_dict()
+
+
+@app.get("/customers/{client_id}/status")
+def customer_status(client_id: str):
+    return customer_service.customer_status(client_id)
+
+
+@app.get("/app", response_class=HTMLResponse)
+def owner_app():
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "web" / "index.html"
+    return HTMLResponse(path.read_text(encoding="utf-8"))
+
+
+@app.get("/app/config", response_class=JSONResponse)
+def owner_app_config():
+    return {"supabase_url": settings.supabase_url, "supabase_publishable_key": settings.supabase_publishable_key}
+
+
+@app.get("/app/session", response_class=JSONResponse)
+async def owner_app_session(user: dict = Depends(require_supabase_user)):
+    return {
+        "authenticated": True,
+        "user": {
+            "id": user.get("id"),
+            "email": user.get("email"),
+            "role": user.get("app_role"),
+        },
+    }
+
+
+@app.get("/roapp/orders", dependencies=[Depends(require_internal_auth)])
 async def orders(page: int = Query(1, ge=1)):
     try:
         return await RoAppClient().get_orders(page)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="RO App API temporarily unavailable") from exc
     except Exception as exc:
-        # Do not expose upstream URLs, exception text, or configuration details
-        # through the public API response.
         raise HTTPException(status_code=502, detail="RO App API request failed") from exc
 
 
-@app.get("/roapp/audit/orders")
+@app.get("/roapp/audit/orders", dependencies=[Depends(require_internal_auth)])
 async def audit_orders(max_pages: int = Query(10, ge=1, le=100)):
-    """Read-only audit of order pages; no RO App data is changed."""
     try:
         pages = await RoAppClient().get_orders_pages(max_pages)
         return audit_order_pages(pages)
