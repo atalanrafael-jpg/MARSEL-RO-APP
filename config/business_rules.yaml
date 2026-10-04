@@ -1,0 +1,36 @@
+# Business rules for MARSEL ROAPP operations.
+# These values are defaults to preserve a controlled, fail-closed business flow.
+
+roles:
+  - owner
+  - manager
+  - master
+  - employee
+  - customer
+  - accountant
+  - support
+
+repair_statuses:
+  - received
+  - assessed
+  - estimate_approved
+  - in_work
+  - waiting_for_part
+  - quality_control
+  - ready_for_pickup
+  - issued
+  - delayed
+  - cancelled
+  - rework_required
+
+default_currency: RUB
+default_labour_rate_per_hour: 2500
+default_material_markup_percent: 15
+customer_notification_channels:
+  - email
+  - sms
+  - telegram
+
+read_only_by_default: true
+require_evidence_for_write: true
+require_approval_for_write: true

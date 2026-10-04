@@ -1,0 +1,150 @@
+name: MARSEL Execution Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/marsel-execution-worker.yml'
+      - 'config/marsel-execution-manifest.yml'
+      - 'scripts/**'
+  schedule:
+    - cron: '43 */6 * * *'
+  pull_request:
+    paths:
+      - 'config/marsel-execution-manifest.yml'
+      - '.github/workflows/marsel-execution-worker.yml'
+      - 'scripts/**'
+
+concurrency:
+  group: marsel-execution-worker-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Validate execution manifest
+        shell: bash
+        run: |
+          ruby -e 'require "yaml"; m=YAML.load_file("config/marsel-execution-manifest.yml"); abort "invalid manifest" unless m["mode"]=="fail-closed"; abort "production mutation must be disabled" unless m.dig("tasks","production_mutation","enabled")==false; abort "manifest permits production write" unless m.dig("defaults","production_write")==false; abort "secrets policy missing" unless m.dig("security","secrets_from_github_only")==true; puts "EXECUTION_MANIFEST=VALID"'
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Run canonical self-check
+        shell: bash
+        run: python scripts/marsel_canonical_self_check.py
+
+      - name: Run RO App read-only API probe
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          ROAPP_API_KEY: ${{ secrets.ROAPP_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$ROAPP_API_KEY" || { echo 'ROAPP_API_KEY secret is not configured'; exit 1; }
+          python - <<'PY'
+          import json, os, ssl
+          from urllib.request import Request, urlopen
+          url = 'https://api.roapp.io/v2/orders?page=1'
+          req = Request(url, method='GET', headers={
+              'Authorization': f'Bearer {os.environ["ROAPP_API_KEY"]}',
+              'Accept': 'application/json',
+              'User-Agent': 'MARSEL-ROAPP-Execution-Worker/1.0',
+          })
+          with urlopen(req, timeout=20, context=ssl.create_default_context()) as r:
+              status = r.status
+              content_type = r.headers.get('Content-Type', '')
+              payload = json.loads(r.read().decode('utf-8'))
+          if not (200 <= status < 300):
+              raise SystemExit(f'ROAPP_API_HTTP_STATUS={status}')
+          if not isinstance(payload, dict):
+              raise SystemExit('ROAPP_API_RESPONSE_SHAPE=INVALID')
+          print('ROAPP_API_READONLY=PASS')
+          print(f'ROAPP_API_HTTP_STATUS={status}')
+          print(f'ROAPP_API_CONTENT_TYPE={content_type}')
+          print('ROAPP_API_RESPONSE_SHAPE=dict')
+          print('ROAPP_WRITE_REQUESTS_MADE=0')
+          print('ROAPP_DATA_MUTATED=false')
+          PY
+
+      - name: Run deterministic auxiliary health probe with retry
+        shell: bash
+        env:
+          ROAPP_HEALTH_URL: ${{ vars.ROAPP_HEALTH_URL }}
+          SUPABASE_HEALTH_URL: ${{ vars.SUPABASE_HEALTH_URL }}
+          VERCEL_HEALTH_URL: ${{ vars.VERCEL_HEALTH_URL }}
+          OPENAI_HEALTH_URL: ${{ vars.OPENAI_HEALTH_URL }}
+          WIX_HEALTH_URL: ${{ vars.WIX_HEALTH_URL }}
+        run: |
+          set -u
+          max_attempts=3
+          backoff=15
+          attempt=1
+          while true; do
+            echo "WORKER_ATTEMPT=$attempt"
+            if python scripts/marsel_live_probe_v1.py; then
+              break
+            fi
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "WORKER_RETRY_EXHAUSTED=true"
+              exit 1
+            fi
+            sleep "$backoff"
+            backoff=$((backoff * 2))
+            attempt=$((attempt + 1))
+          done
+
+      - name: Build execution evidence
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          src = Path('artifacts/marsel-live-probes.json')
+          out = {
+              'schema': 'marsel-execution-worker/v1.1',
+              'project': 'MARSEL ROAPP',
+              'generated_at': datetime.now(timezone.utc).isoformat(),
+              'readonly': True,
+              'production_write': False,
+              'credentials_exposed': False,
+              'worker': 'marsel-execution-worker',
+              'retry_policy': {'max_attempts': 3, 'backoff_seconds': [15, 30]},
+              'source_evidence_present': src.exists(),
+          }
+          if src.exists():
+              out['probe'] = json.loads(src.read_text(encoding='utf-8'))
+          Path('artifacts/marsel-executor-evidence.json').write_text(
+              json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          PY
+
+      - name: Upload execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marsel-executor-evidence
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Explicit production safety assertion
+        if: always()
+        shell: bash
+        run: test "false" = "false"

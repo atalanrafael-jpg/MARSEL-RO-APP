@@ -38,6 +38,14 @@ jobs:
     name: Validate official ROAPP OpenAPI contract
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+jobs:
+  validate-roapp-contract:
+    name: Validate official ROAPP documentation discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      openapi_available: ${{ steps.contract.outputs.openapi_available }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,6 +81,40 @@ jobs:
           rdme: openapi validate .artifacts/roapp.openapi.json
 
       - name: Upload validation evidence
+        run: python scripts/marsel_official_roapp_discovery_v1.py
+
+      - name: Verify official ROAPP documentation index
+        id: contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          p = Path("marsel-official-roapp-discovery-v1.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          if data.get("official_llms_available") is not True:
+              raise SystemExit("Official RO App llms.txt is unavailable")
+
+          sources = {item.get("url"): item for item in data.get("sources", [])}
+          for url in ("https://roapp.readme.io/openapi.json", "https://roapp.readme.io/openapi.yaml"):
+              item = sources.get(url, {})
+              print(f"{url}: status={item.get('http_status', 'unavailable')}")
+
+          available = data.get("openapi_available") is True
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"openapi_available={'true' if available else 'false'}\n")
+
+          if not available:
+              print("OPENAPI_SOURCE_UNAVAILABLE: the public RO App ReadMe publication does not currently expose openapi.json/openapi.yaml.")
+              print("The pipeline will skip synchronization and will not fabricate or upload a replacement specification.")
+          else:
+              print("OPENAPI_SOURCE_AVAILABLE=True")
+          PY
+
+      - name: Upload discovery evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -81,12 +123,15 @@ jobs:
             marsel-official-roapp-discovery-v1.json
             .artifacts/roapp.openapi.json
           if-no-files-found: warn
+          path: marsel-official-roapp-discovery-v1.json
+          if-no-files-found: error
           retention-days: 30
 
   sync-readme:
     name: Sync validated ROAPP OpenAPI to ReadMe
     needs: validate-roapp-contract
     if: ${{ needs.validate-roapp-contract.result == 'success' && env.README_API_KEY != '' && env.README_API_DEFINITION_SLUG != '' }}
+    if: ${{ needs.validate-roapp-contract.result == 'success' && needs.validate-roapp-contract.outputs.openapi_available == 'true' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -102,6 +147,29 @@ jobs:
             --header 'User-Agent: MARSEL-ROApp-CI/1.0' \
             --output .artifacts/roapp.openapi.json \
             "$ROAPP_OPENAPI_JSON_URL"
+
+      - name: Validate downloaded OpenAPI document
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('.artifacts/roapp.openapi.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          if not isinstance(data, dict) or not str(data.get('openapi', '')).strip():
+              raise SystemExit('Downloaded document is not a valid OpenAPI JSON document')
+          if not isinstance(data.get('paths'), dict) or not data['paths']:
+              raise SystemExit('Downloaded OpenAPI document contains no paths')
+          print(f"OpenAPI version: {data['openapi']}")
+          print(f"Title: {data.get('info', {}).get('title', '<missing>')}")
+          print(f"Paths: {len(data['paths'])}")
+          PY
+
+      - name: Validate OpenAPI with official ReadMe CLI
+        uses: readmeio/rdme@v10
+        with:
+          rdme: openapi validate .artifacts/roapp.openapi.json
 
       - name: Sync OpenAPI to ReadMe
         uses: readmeio/rdme@v10

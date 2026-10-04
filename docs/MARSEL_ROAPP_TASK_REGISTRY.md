@@ -1,6 +1,6 @@
 # MARSEL ROAPP — ЕДИНЫЙ РЕЕСТР ЗАДАЧ
 
-Дата контрольной точки: 2026-08-31
+Дата контрольной точки: 2026-09-07
 
 ## Правило
 
@@ -14,20 +14,44 @@ MARSEL и ROAPP — один проект. Issue, PR, workflow, документ
 |---|---|---|---|
 | #19 | Production go-live | BLOCKED / NOT READY | собрать 8 обязательных production evidence; WRITE остаётся 0 |
 | #91 | GitHub account/security controls | OPEN / MANUAL | исправить target ruleset, secret scanning/push protection, production environment и Copilot controls через GitHub account UI/API |
-| PR #89 | Limits-resilient execution worker | OPEN / DRAFT / MERGEABLE | пройти review и текущий CI; затем снять Draft и merge только после проверки |
-| Warehouse | Warehouse API | NOT VERIFIED | получить прямое доказательство официального GET-контракта |
+| PR #89 | Limits-resilient execution worker | CLOSED / NOT MERGED | не считать worker внедрённым в `main`; при необходимости создать/восстановить отдельный PR после проверки текущего состояния ветки |
+| PR #126 | Duplicate test-infrastructure fix | CLOSED / DUPLICATE | изменения заменены актуальным PR #130, который уже смёржен |
+| PR #130 | Control-agent test import fix | MERGED | squash-merge в `main`; post-merge CI идёт на commit `690e2d4b6111929d2cfb5ce18441b533020e9e8a` |
+| Warehouse | Warehouse API | LIVE-READ-VERIFIED / CONTRACT ONLY | подтвердить полный response schema и stock/stock-movement endpoints отдельными GET evidence |
 | MCP | ChatGPT/Codex MCP | AUTH PENDING | выполнить реальную authorization verification |
 | Credentials | ROAPP API key | SECURITY GATE | подтвердить rotation/history scan при подозрении или подтверждённом exposure |
 | Gmail OAuth | Live read-only OAuth | NOT VERIFIED | выполнить реальный OAuth smoke test |
 | Evidence | Production evidence bundle | 1/8 | отсутствуют backup, restore, reconciliation, duplicate/reference, dry-run, idempotency, rollback evidence |
+| ERP Architecture | ERP master architecture | DONE / DESIGN | архитектура закреплена в `docs/MARSEL_ERP_MASTER_ARCHITECTURE_V1.md` |
+| ERP Data Dictionary | ERP data dictionary v1 | DONE / DESIGN | создан `docs/MARSEL_ERP_DATA_DICTIONARY_V1.md`; mapping продолжается по evidence |
+| ERP Repository Contract Audit | repository implementation audit | DONE / READ-ONLY | создан `docs/MARSEL_ERP_ROAPP_REPOSITORY_CONTRACT_AUDIT_2026-09-06.md`; не повышать live-статусы без свежего GET evidence |
+| ERP Endpoint Surface Audit | repository endpoint surface | DONE / READ-ONLY | создан `docs/MARSEL_ERP_ENDPOINT_SURFACE_AUDIT_2026-09-06.md`; endpoint paths из audit scripts не считать API contract без evidence |
+| ERP Stock/Materials Evidence Gate | stock/materials control pass | DONE / READ-ONLY | создан `docs/MARSEL_ERP_STOCK_MATERIALS_EVIDENCE_GATE_2026-09-06.md`; live evidence по stock, movements, materials, metals, stones отсутствует |
+| ERP Entity/API Mapping | ERP ↔ RO App mapping | PARTIAL / WAREHOUSE-CONTRACT-VERIFIED | подтвердить stock, materials, products, customers и payments через официальные GET evidence; не создавать дублирующие коннекторы для уже реализованных read-only путей |
+| ERP Costing | Costing | NOT VERIFIED | подтвердить существующий engine, price sources, labor/overhead и planned-vs-actual; не создавать параллельный engine |
+| ERP Finance | Finance boundary | NOT VERIFIED | определить authoritative finance/accounting source и выполнить READ_ONLY mapping/reconciliation |
+| ERP Readiness | ERP production readiness | BLOCKED | не считать production ERP готовым до P0 gates; отдельно закрыть costing, finance, inventory, procurement, production и repair flows |
 
 ## Что уже подтверждено
 
 - Базовый repository CI на последнем проверенном запуске проходит.
 - Production WRITE не включён.
-- Execution Worker спроектирован как read-only/fail-closed и не получает production secrets.
+- Execution Worker спроектирован как read-only/fail-closed и не получает production secrets, но PR #89 закрыт и не смёржен; поэтому его изменения не считаются внедрёнными в `main`.
 - Production Evidence Orchestrator корректно блокирует gate при неполном evidence.
 - Security issue, ранее ошибочно закрытая при состоянии NOT READY, была возвращена в OPEN.
+- ERP закреплён как обязательный бизнес-контур MARSEL ROAPP отдельной master-архитектурой.
+- ERP data dictionary v1 добавлен в репозиторий; его mapping-статусы намеренно не повышены без live/API evidence.
+- Warehouse-list contract получил прямое repository evidence: `evidence/marsel-unified-warehouse-contract.json` фиксирует `status=PASS`, `mode=READ_ONLY`, `write_requests_made=0`, `ro_app_data_mutated=false`, `warehouse_list_contract_verified=true` на `2026-09-05T08:41:00Z`.
+- Costing audit 2026-09-06 выполнен: архитектура подтверждена как DESIGN, production implementation и RO App cost API не подтверждены.
+- Finance boundary audit 2026-09-06 выполнен: financial control model подтверждена, production ledger/posting/integration не подтверждены.
+- Repository contract audit 2026-09-06 выполнен: существующая read-only инфраструктура найдена для orders, products, services и warehouse; наличие кода не приравнено к свежему live contract evidence.
+- Endpoint surface audit 2026-09-06 выполнен: inventory script содержит дополнительные candidate paths (`/catalog/bundles`, `/inquiries`, `/bookings`, `/estimates`, `/invoices`), но они не повышены до verified API contracts.
+- Stock/materials evidence gate 2026-09-06 выполнен: repository evidence недостаточно для promotion stock, stock movements, materials, metals или stones; никаких новых production connectors не создано.
+- Customers/payments/costing/finance evidence gate 2026-09-06 выполнен: standalone customer/payment contracts, production costing engine и finance ledger/posting remain NOT VERIFIED.
+- Свежая проверка GitHub показала, что PR #89 фактически `CLOSED / NOT MERGED`; старый статус `OPEN / DRAFT / MERGEABLE` был устаревшим и исправлен этим реестром.
+- PR #130 (`fix(control-agent-test-import-current-main`) был проверен как `mergeable=true`; его workflow `MARSEL release readiness` завершился `success` до merge. PR #130 смёржен squash-методом в `main` с commit `690e2d4b6111929d2cfb5ce18441b533020e9e8a`.
+- После merge #130 запущен `MARSEL RO App API v2 Guard` на `main`; на момент контрольной точки он находится `in_progress`, поэтому post-merge CI ещё не считается завершённым.
+- PR #126, содержащий тот же test-infrastructure fix на устаревшей базе, закрыт как duplicate после успешного merge актуального PR #130.
 
 ## Текущие ограничения
 
@@ -39,9 +63,30 @@ MARSEL и ROAPP — один проект. Issue, PR, workflow, документ
 - подтвердить Copilot account controls;
 - выполнить пользовательский Gmail OAuth;
 - выполнить пользовательскую RO App MCP authorization;
-- создать реальные backup/restore/rollback доказательства без доступа к соответствующим production systems.
+- создать реальные backup/restore/rollback evidence без доступа к соответствующим production systems;
+- выполнить live RO App GET smoke tests без действующей авторизации/API access.
 
 Никакие фиктивные evidence, credentials, OAuth tokens или production WRITE операции не создаются.
+
+## ERP
+
+ERP является обязательным контуром проекта, а RO App — его операционной/API-подсистемой в пределах подтверждённых контрактов. Каноническая архитектура: `docs/MARSEL_ERP_MASTER_ARCHITECTURE_V1.md`.
+
+Data dictionary: `docs/MARSEL_ERP_DATA_DICTIONARY_V1.md`.
+
+Repository contract audit: `docs/MARSEL_ERP_ROAPP_ENTITY_API_MAPPING_V1.md` и `docs/MARSEL_ERP_ROAPP_REPOSITORY_CONTRACT_AUDIT_2026-09-06.md`.
+
+Endpoint surface audit: `docs/MARSEL_ERP_ENDPOINT_SURFACE_AUDIT_2026-09-06.md`.
+
+Stock/materials evidence gate: `docs/MARSEL_ERP_STOCK_MATERIALS_EVIDENCE_GATE_2026-09-06.md`.
+
+Customers/payments/costing/finance evidence gate: `docs/MARSEL_ERP_CUSTOMERS_PAYMENTS_COSTING_FINANCE_GATE_2026-09-06.md`.
+
+Целевой сквозной поток:
+
+`клиенты → заказы → производство/ремонт → материалы → склад → себестоимость → оплаты → аналитика → автоматизация → повторные продажи`
+
+Следующий ERP-проход: получить пользовательскую/системную RO App authorization и выполнить свежие READ_ONLY GET evidence для stock → materials/products/customers/payments; затем закрыть costing implementation и finance source/reconciliation. До этого ERP readiness остаётся BLOCKED.
 
 ## Linear
 

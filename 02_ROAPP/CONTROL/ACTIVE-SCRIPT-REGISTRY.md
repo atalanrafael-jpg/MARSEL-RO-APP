@@ -1,6 +1,6 @@
 # MARSEL / Ro App — Active Script Registry
 
-Дата контрольной ревизии: 2026-08-24
+Дата контрольной ревизии: 2026-09-03
 Ветка: `main`
 
 ## 1. ACTIVE / CORE — фактически вызывается Unified Control Plane
@@ -12,7 +12,7 @@
 | Data quality | `scripts/marsel_data_quality_v22_readonly.py` | ACTIVE |
 | Entity audit | `scripts/marsel_entity_audit_v20_35.py` | ACTIVE |
 | Product collision | `scripts/marsel_product_code_collision_audit_v22_3.py` | ACTIVE |
-| Warehouse contract | `scripts/marsel_warehouse_contract_v20_47.py` | ACTIVE |
+| Warehouse contract | `scripts/marsel_warehouse_contract_v20_48.py` | ACTIVE |
 
 Источник истины для ACTIVE-набора: `.github/workflows/marsel-unified-control-plane.yml` на `main`.
 
@@ -45,15 +45,15 @@
 - CORE inventory entrypoint: `v20_32`.
 - `v20_31` и `v20_29` ранее были ошибочно отмечены как legacy candidates; фактическая import chain делает их REQUIRED INTERNAL DEPENDENCIES.
 - CORE collision: `marsel_product_code_collision_audit_v22_3.py`.
-- CORE warehouse: `marsel_warehouse_contract_v20_47.py`; внутреннее поле `version` также `20.47`.
-- Версия `20.48` не подтверждена и не используется как активная версия.
+- CORE warehouse: `scripts/marsel_warehouse_contract_v20_48.py`; внутреннее поле `version` — `20.48`.
+- `v20_47` не является текущей активной реализацией и не должен указываться как CORE warehouse implementation.
 - Старые warehouse-варианты не входят в ACTIVE execution set и сохраняются только как исторический след.
 
 ## 6. Правила
 
 1. Workflow является источником истины для фактического ACTIVE execution set.
 2. Import/dependency graph является источником истины для REQUIRED INTERNAL DEPENDENCIES.
-3. Более новая версия не заменяет старую автоматически.
+3. Более новая версия не заменяет старую автоматически; замена фиксируется только после проверки фактической реализации и зависимостей.
 4. Архивирование = перенос только после dependency audit и проверки test discovery.
 5. История Git/GitHub Actions сохраняется.
 6. После любого изменения ACTIVE execution set или dependency chain требуется новый Unified Control Plane run.
