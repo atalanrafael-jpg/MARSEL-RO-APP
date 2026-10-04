@@ -58,6 +58,10 @@ The sync job is deliberately disabled until the exact existing ReadMe API defini
 
 Add these repository secrets in GitHub → Settings → Secrets and variables → Actions:
 
+- `README_API_KEY` — the ReadMe project API key. Never commit this value.
+- `README_API_DEFINITION_SLUG` — the existing ReadMe API definition slug for the ROAPP specification.
+
+ReadMe recommends storing the API key as a GitHub Actions secret. The official `rdme@v10` action is used for validation and synchronization.
 - `README_API_KEY` — the ReadMe project API key used by `rdme`. Never commit this value.
 - `README_API_DEFINITION_SLUG` — the existing ReadMe API definition slug for the ROAPP specification.
 
@@ -79,6 +83,7 @@ Do not create a new ReadMe API definition from CI. The workflow always requires 
 
 ## Security rule
 
+No RO App credentials, ReadMe API keys, access tokens, cookies or private customer data may be committed to the repository. CI must use GitHub Secrets.
 No RO App credentials, ReadMe API keys, access tokens, cookies or private customer data may be committed to the repository. CI must use GitHub Secrets or equivalent secret storage.
 
 ## Verification rule
