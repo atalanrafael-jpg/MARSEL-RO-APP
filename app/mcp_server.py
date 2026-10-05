@@ -4,8 +4,8 @@ from typing import Any
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
-from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.server import Settings as FastMCPSettings
+from mcp.server.mcpserver import MCPServer
+from mcp.server import MCPServer
 from pydantic import AnyHttpUrl
 
 from .audit import audit_order_pages
@@ -13,30 +13,20 @@ from .config import settings
 from .roapp_client import RoAppClient
 
 
-# The MCP v1 FastMCP Settings model can retain an unresolved forward reference
-# for its generic ``lifespan`` field. Recent pydantic-settings versions warn
-# when that incomplete model is instantiated. Rebuild it after the MCP module
-# has finished defining FastMCP; this is the upstream-documented workaround and
-# does not change server lifespan behaviour.
-if not FastMCPSettings.__pydantic_complete__:
-    FastMCPSettings.model_rebuild()
-
-
 MCP_NAME = "MARSEL RO App"
+MCP_NAME = "MARSEL ROAPP"
 MCP_INSTRUCTIONS = (
-    "Read-only access to the MARSEL RO App connector. "
+    "Read-only access to the MARSEL ROAPP connector. "
     "Use these tools to inspect orders and run bounded data-quality audits. "
-    "No tool exposed by this server mutates RO App data."
+    "No tool exposed by this server mutates ROAPP data."
 )
 
 
-def create_mcp_server(token_verifier: TokenVerifier | None = None) -> FastMCP:
+def create_mcp_server(token_verifier: TokenVerifier | None = None) -> MCPServer:
     """Create an MCP server for local stdio or authenticated HTTP use."""
     kwargs: dict[str, Any] = {
         "name": MCP_NAME,
         "instructions": MCP_INSTRUCTIONS,
-        "json_response": True,
-        "stateless_http": True,
     }
 
     if token_verifier is not None:
@@ -51,24 +41,24 @@ def create_mcp_server(token_verifier: TokenVerifier | None = None) -> FastMCP:
             required_scopes=settings.mcp_required_scopes,
         )
 
-    mcp = FastMCP(**kwargs)
+    mcp = MCPServer(**kwargs)
 
     @mcp.tool(
         annotations={
-            "title": "Get RO App orders",
+            "title": "Get MARSEL ROAPP orders",
             "readOnlyHint": True,
             "openWorldHint": False,
         }
     )
     async def get_orders(page: int = 1) -> dict[str, Any]:
-        """Fetch one bounded RO App orders page without modifying RO App data."""
+        """Fetch one bounded MARSEL ROAPP orders page without modifying data."""
         if page < 1:
             raise ValueError("page must be >= 1")
         return await RoAppClient().get_orders(page)
 
     @mcp.tool(
         annotations={
-            "title": "Audit RO App orders",
+            "title": "Audit MARSEL ROAPP orders",
             "readOnlyHint": True,
             "openWorldHint": False,
         }
@@ -82,7 +72,7 @@ def create_mcp_server(token_verifier: TokenVerifier | None = None) -> FastMCP:
 
     @mcp.tool(
         annotations={
-            "title": "Check MARSEL connector readiness",
+            "title": "Check MARSEL ROAPP connector readiness",
             "readOnlyHint": True,
             "openWorldHint": False,
         }
@@ -103,6 +93,6 @@ def create_mcp_server(token_verifier: TokenVerifier | None = None) -> FastMCP:
     return mcp
 
 
-def create_local_mcp_server() -> FastMCP:
+def create_local_mcp_server() -> MCPServer:
     """Create the unauthenticated local stdio server for trusted local Codex use."""
     return create_mcp_server()

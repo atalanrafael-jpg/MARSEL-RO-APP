@@ -10,9 +10,14 @@ on:
       - "docs/**"
       - "*.md"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["MARSEL Restore Verification"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: marsel-release-readiness-${{ github.workflow }}-${{ github.ref }}
@@ -24,6 +29,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Download trusted backup/restore evidence
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          name: marsel-restore-evidence
+          path: artifacts/evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -31,8 +46,34 @@ jobs:
         run: python -m compileall -q scripts
       - name: Canonical self-check
         run: python scripts/marsel_canonical_self_check.py
-      - name: Release readiness check
+      - name: Verify repository release controls
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = [
+              '.github/workflows/mcp-production.yml',
+              'scripts/marsel_canonical_self_check.py',
+              'scripts/marsel_production_gate_v1.py',
+              'docs/MARSEL-PRODUCTION-GO-LIVE-GATES.md',
+              'docs/MARSEL_ROAPP_TASK_REGISTRY.md',
+              'SECURITY.md',
+          ]
+          missing = [p for p in required if not Path(p).exists()]
+          if missing:
+              raise SystemExit(f'Missing required controls: {missing}')
+          print('REPOSITORY_CONTROLS=PASS')
+          PY
+      - name: Release readiness check with real external evidence
+        if: github.event_name != 'pull_request'
+        env:
+          MARSEL_EVIDENCE_DIR: ${{ github.event_name == 'workflow_run' && 'artifacts/evidence' || 'evidence' }}
         run: python scripts/marsel_release_readiness_v1.py
+      - name: PR-safe release evidence policy
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "EXTERNAL_EVIDENCE=NOT_REQUIRED_FOR_PR_REVIEW"
+          echo "PRODUCTION_WRITE_AUTHORIZED=false"
+          echo "RESULT=PR_SAFE_REVIEW"
       - name: Production gate must remain fail-closed
         env:
           MARSEL_WRITE_APPROVED: "true"
@@ -41,3 +82,4 @@ jobs:
             echo "Production gate incorrectly accepted write approval" >&2
             exit 1
           fi
+          echo "FAIL_CLOSED=PASS"
