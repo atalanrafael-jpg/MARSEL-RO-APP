@@ -1,0 +1,35 @@
+name: MARSEL System Synchronization Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '43 */6 * * *'
+concurrency:
+  group: marsel-system-sync-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  sync-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout canonical revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Run synchronization drift audit
+        run: python scripts/marsel_system_sync_audit.py
+      - name: Publish evidence
+        if: always()
+        run: |
+          printf '%s\n' "system=MARSEL ROAPP" "repository=atalanrafael-jpg/MARSEL-Ro-app" "branch=main" "production_write=false" "run_id=${GITHUB_RUN_ID}" "commit=${GITHUB_SHA}" > marsel-system-sync-evidence.txt
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: marsel-system-sync-evidence
+          path: marsel-system-sync-evidence.txt
+          if-no-files-found: error
+          retention-days: 90
