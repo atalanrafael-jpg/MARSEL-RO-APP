@@ -1,0 +1,16 @@
+{
+  "name": "marsel-ro-app-python",
+  "version": "1.0.0",
+  "description": "Vercel Speed Insights integration for MARSEL Ro-app",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "test": "echo 'No tests specified'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

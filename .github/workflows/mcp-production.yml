@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: marsel-roapp-mcp-production-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   mcp-production:
