@@ -1,0 +1,19 @@
+{
+  "schema_version":"1.0",
+  "system":"MARSEL ROAPP",
+  "business_name":"Ювелирная студия MARSEL",
+  "canonical":{"repository":"atalanrafael-jpg/MARSEL-Ro-app","branch":"main","control_plane":".github/workflows/marsel-unified-control-plane.yml","architecture":"MARSEL_ROAPP_UNIFIED_SYSTEM.md","master_control":"docs/PROJECT_MASTER_CONTROL.md","ai_control_plane":"docs/MARSEL_AI_CONTROL_PLANE.md","mvp_contract":"01_MASTER/MARSEL_ROAPP_PRODUCTIZATION_MVP.md"},
+  "synchronization_policy":{"direction":"source_of_truth_to_dependents","production_write":false,"readonly_default":true,"unknown_state":"NOT_VERIFIED","prepared_is_not_verified":true,"found_is_not_connected":true,"verified_requires_current_evidence":true},
+  "sources":[
+    {"id":"github-main","type":"source_control","source_of_truth":true,"status":"VERIFIED","evidence":"current repository README and main branch metadata"},
+    {"id":"project-docs","type":"documentation","source_of_truth":true,"status":"VERIFIED","paths":["MARSEL_ROAPP_UNIFIED_SYSTEM.md","docs/PROJECT_MASTER_CONTROL.md","docs/MARSEL_AI_CONTROL_PLANE.md","01_MASTER/MARSEL_ROAPP_PRODUCTIZATION_MVP.md"]},
+    {"id":"roapp-api","type":"external_api","source_of_truth":true,"status":"PARTIAL","mode":"READ_ONLY","write_enabled":false,"note":"Orders and read-only audit are evidenced; complete entity/warehouse/reconciliation coverage remains a gate."},
+    {"id":"supabase","type":"application_database","source_of_truth":false,"status":"REVIEW_REQUIRED","note":"RLS-enabled repair schema exists; migration/control-state reconciliation remains an external gate."},
+    {"id":"vercel","type":"deployment","source_of_truth":false,"status":"PARTIAL","note":"Recent analytics/speed-insights changes exist in Git history; live deployment verification is required before PASS."},
+    {"id":"chatgpt-core","type":"assistant_configuration","source_of_truth":false,"status":"PARTIAL","note":"Operating protocol is versioned in the repository; account/UI settings and connector authorization are not repository state."},
+    {"id":"connectors-and-plugins","type":"integration_runtime","source_of_truth":false,"status":"PARTIAL","note":"Runtime tool availability is observable; connection/authorization state must be verified per provider."},
+    {"id":"external-docs-and-mcp","type":"external_contract","source_of_truth":true,"status":"REVIEW_REQUIRED","note":"Official RO App MCP authorization and external documentation synchronization require direct evidence."}
+  ],
+  "sync_dimensions":["identity","canonical_repository","branch","code","workflows","instructions","data_contracts","api_contracts","secrets_metadata","connector_capabilities","plugin_capabilities","supabase_schema","deployment","audit_evidence","security_controls"],
+  "rules":{"no_secret_values":true,"no_production_mutation":true,"no_guessed_endpoints":true,"no_guessed_identifiers":true,"no_automatic_delete":true,"no_status_upgrade_without_evidence":true,"drift_must_be_logged":true,"every_write_requires_verify":true}
+}
