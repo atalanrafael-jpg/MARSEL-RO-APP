@@ -19,7 +19,7 @@ API_REGISTRY = ROOT / "scripts" / "marsel_api_v2_canonical_registry_v1.py"
 API_REGISTRY_DOC = ROOT / "docs" / "MARSEL-API-REGISTRY.md"
 TASK_REGISTRY = ROOT / "docs" / "MARSEL_ROAPP_TASK_REGISTRY.md"
 ARCH = ROOT / "MARSEL_ROAPP_UNIFIED_SYSTEM.md"
-MASTER_CORE = ROOT / "MARSEL_ROAPP_MASTER_CORE.md"
+CANONICAL_CORE = ROOT / "01_MASTER" / "MARSEL_ROAPP_CANONICAL.md"
 EVIDENCE_BUILDER = ROOT / "scripts" / "marsel_evidence_builder_v1.py"
 CANONICAL_SCRIPTS = {
     "scripts/marsel_api_inventory_v20_32.py",
@@ -35,12 +35,12 @@ LIVE_MARKERS = ("ROAPP_API_KEY", "api.roapp.io/v2", "MARSEL read-only orders aud
 STALE_API_REGISTRY_MARKERS = ("marsel-live-probe-v20-27.yml", "marsel-readonly-integrity-v21.yml")
 FORBIDDEN_WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
 REQUIRED_CORE_MARKERS = (
-    "MARSEL ROAPP MASTER CORE",
-    "CANONICAL PROJECT CORE",
-    "event → action → result → verification → checkpoint → next task",
-    "NOT_VERIFIED",
-    "Production safety gate",
-    "ChatGPT Core integration",
+    "MARSEL ROAPP — CANONICAL SYSTEM",
+    "**Status:** CANONICAL",
+    "01_MASTER/",
+    "Production WRITE: disabled",
+    "`main` is the technical canonical branch",
+)
 GOVERNANCE = ROOT / "docs" / "MARSEL_ROAPP_CANONICAL_GOVERNANCE.md"
 CANONICAL = ROOT / "01_MASTER" / "MARSEL_ROAPP_CANONICAL.md"
 CURRENT = ROOT / "01_MASTER" / "MARSEL_ROAPP_CURRENT_STATE.md"
@@ -69,7 +69,7 @@ def main() -> int:
     required = [
         WORKFLOW, PRODUCTION_GATE, GENERIC_TEST, WORKFLOW_REGISTRY,
         CANONICAL_GOVERNANCE, BOOTSTRAP, SETTINGS_BASELINE, API_REGISTRY,
-        API_REGISTRY_DOC, TASK_REGISTRY, ARCH, MASTER_CORE, EVIDENCE_BUILDER,
+        API_REGISTRY_DOC, TASK_REGISTRY, ARCH, CANONICAL_CORE, EVIDENCE_BUILDER,
     ]
     missing = [str(p.relative_to(ROOT)) for p in required if not p.exists()]
     if missing:
@@ -86,7 +86,7 @@ def main() -> int:
     registry_doc_text = API_REGISTRY_DOC.read_text(encoding="utf-8")
     task_text = TASK_REGISTRY.read_text(encoding="utf-8")
     arch_text = ARCH.read_text(encoding="utf-8")
-    core_text = MASTER_CORE.read_text(encoding="utf-8")
+    core_text = CANONICAL_CORE.read_text(encoding="utf-8")
     evidence_builder_text = EVIDENCE_BUILDER.read_text(encoding="utf-8")
 
     for marker in REQUIRED_CORE_MARKERS:

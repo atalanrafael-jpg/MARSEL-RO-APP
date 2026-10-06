@@ -65,8 +65,6 @@ CONNECTOR_OUTPUT_SCHEMA = {
 }
 
 mcp = MCPServer(
-    "MARSEL RO App",
-mcp = MCPServer(
     "MARSEL ROAPP",
     instructions=(
         "Read-only MARSEL ROAPP inspection. Fetch orders, run bounded data-quality audits, "
@@ -82,7 +80,6 @@ def _headers() -> dict[str, str]:
     return {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
-        "User-Agent": "MARSEL-RoApp-Plugin/1.2",
         "User-Agent": "MARSEL-ROAPP-Plugin/1.2",
     }
 
@@ -184,8 +181,4 @@ def connector_readiness() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", stateless_http=True, json_response=True)
-    # Local Codex/plugin hosts launch MCP servers as subprocesses over stdio.
-    # Streamable HTTP remains available when the host explicitly selects it,
-    # e.g. `uv run mcp run server.py --transport streamable-http`.
     mcp.run()
