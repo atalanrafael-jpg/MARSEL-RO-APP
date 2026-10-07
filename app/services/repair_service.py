@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .business_models import Client, Item, Material, Repair, RepairStatus
+from ..business_models import Client, Item, Material, Repair, RepairStatus
 
 
 class RepairService:

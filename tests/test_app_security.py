@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.config import settings
-from app.main import app
+from app.main import app, require_supabase_user
 
 
 def test_roapp_orders_requires_internal_auth(monkeypatch):
@@ -44,13 +44,21 @@ def test_ready_does_not_disclose_secret_presence(monkeypatch):
 
 
 def test_owner_app_is_available():
-    response = TestClient(app).get("/app")
+    app.dependency_overrides[require_supabase_user] = lambda: {"sub": "test-owner"}
+    try:
+        response = TestClient(app).get("/app")
+    finally:
+        app.dependency_overrides.clear()
     assert response.status_code == 200
     assert "MARSEL ROAPP" in response.text
     assert "Вход владельца" in response.text
 
 
 def test_owner_app_config_does_not_expose_roapp_key():
-    response = TestClient(app).get("/app/config")
+    app.dependency_overrides[require_supabase_user] = lambda: {"sub": "test-owner"}
+    try:
+        response = TestClient(app).get("/app/config")
+    finally:
+        app.dependency_overrides.clear()
     assert response.status_code == 200
     assert "roapp_api_key" not in response.text

@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .agents.repair_estimator import RepairEstimator
+from .automation import get_automation_status, validate_automation_request
 from .audit import audit_order_pages
 from .business_models import Client, Item, RepairStatus
 from .config import settings
@@ -148,6 +149,30 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
     return data
 
 
+@app.get("/automation/status")
+def automation_status():
+    return get_automation_status().as_dict()
+
+
+@app.post("/automation/run")
+def automation_run():
+    try:
+        validate_automation_request()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    status = get_automation_status().as_dict()
+    return {
+        "status": "accepted",
+        "read_only": True,
+        "allow_write": False,
+        "mode": status["mode"],
+        "message": "Production WRITE remains disabled; automation execution is read-only and evidence-driven.",
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "marsel-roapp-connector", "version": app.version}
@@ -164,17 +189,17 @@ def ready():
     }
 
 
-@app.get("/repairs")
+@app.get("/repairs", dependencies=[Depends(require_supabase_user)])
 def list_repairs():
     return [repair.to_dict() for repair in repair_service.list_repairs()]
 
 
-@app.get("/repairs/{repair_id}")
+@app.get("/repairs/{repair_id}", dependencies=[Depends(require_supabase_user)])
 def get_repair(repair_id: str):
     return repair_service.get_repair(repair_id).to_dict()
 
 
-@app.post("/repairs")
+@app.post("/repairs", dependencies=[Depends(require_supabase_user)])
 def create_repair(payload: dict):
     client = Client(
         id=payload.get("client_id") or "client-1",
@@ -205,7 +230,7 @@ def create_repair(payload: dict):
     return repair.to_dict()
 
 
-@app.post("/repairs/{repair_id}/status")
+@app.post("/repairs/{repair_id}/status", dependencies=[Depends(require_supabase_user)])
 def update_repair_status(repair_id: str, payload: dict):
     repair = repair_service.update_status(
         repair_id,
@@ -215,7 +240,7 @@ def update_repair_status(repair_id: str, payload: dict):
     return repair.to_dict()
 
 
-@app.post("/repairs/{repair_id}/estimate")
+@app.post("/repairs/{repair_id}/estimate", dependencies=[Depends(require_supabase_user)])
 def repair_estimate(repair_id: str, payload: dict):
     repair = repair_service.get_repair(repair_id)
     estimate = repair_estimator.estimate(
@@ -226,7 +251,7 @@ def repair_estimate(repair_id: str, payload: dict):
     return estimate.to_dict()
 
 
-@app.post("/repairs/{repair_id}/quality")
+@app.post("/repairs/{repair_id}/quality", dependencies=[Depends(require_supabase_user)])
 def add_quality_check(repair_id: str, payload: dict):
     check = quality_service.add_check(
         repair_id,
@@ -237,12 +262,12 @@ def add_quality_check(repair_id: str, payload: dict):
     return check.to_dict()
 
 
-@app.get("/repairs/{repair_id}/quality")
+@app.get("/repairs/{repair_id}/quality", dependencies=[Depends(require_supabase_user)])
 def list_quality_checks(repair_id: str):
     return [check.to_dict() for check in quality_service.list_checks(repair_id)]
 
 
-@app.post("/repairs/{repair_id}/notify")
+@app.post("/repairs/{repair_id}/notify", dependencies=[Depends(require_supabase_user)])
 def send_notification(repair_id: str, payload: dict):
     note = notification_service.send(
         repair_id=repair_id,
@@ -253,17 +278,17 @@ def send_notification(repair_id: str, payload: dict):
     return note.to_dict()
 
 
-@app.get("/repairs/summary")
+@app.get("/repairs/summary", dependencies=[Depends(require_supabase_user)])
 def repairs_summary():
     return dashboard_service.build_summary(repair_service.list_repairs(), material_catalog.list_materials())
 
 
-@app.get("/materials")
+@app.get("/materials", dependencies=[Depends(require_supabase_user)])
 def list_materials():
     return [m.to_dict() for m in material_catalog.list_materials()]
 
 
-@app.post("/materials")
+@app.post("/materials", dependencies=[Depends(require_supabase_user)])
 def create_material(payload: dict):
     material = material_catalog.create_material(
         name=payload.get("name") or "Material",
@@ -276,7 +301,7 @@ def create_material(payload: dict):
     return material.to_dict()
 
 
-@app.get("/customers")
+@app.get("/customers", dependencies=[Depends(require_supabase_user)])
 def list_customers():
     return [
         {"client_id": repair.client.id, "full_name": repair.client.full_name, "email": repair.client.email}
@@ -284,7 +309,7 @@ def list_customers():
     ]
 
 
-@app.post("/customers")
+@app.post("/customers", dependencies=[Depends(require_supabase_user)])
 def create_customer(payload: dict):
     customer = customer_service.register_customer(
         client_id=payload.get("client_id") or "client-1",
@@ -295,19 +320,19 @@ def create_customer(payload: dict):
     return customer.to_dict()
 
 
-@app.get("/customers/{client_id}/status")
+@app.get("/customers/{client_id}/status", dependencies=[Depends(require_supabase_user)])
 def customer_status(client_id: str):
     return customer_service.customer_status(client_id)
 
 
-@app.get("/app", response_class=HTMLResponse)
+@app.get("/app", response_class=HTMLResponse, dependencies=[Depends(require_supabase_user)])
 def owner_app():
     from pathlib import Path
     path = Path(__file__).resolve().parent.parent / "web" / "index.html"
     return HTMLResponse(path.read_text(encoding="utf-8"))
 
 
-@app.get("/app/config", response_class=JSONResponse)
+@app.get("/app/config", response_class=JSONResponse, dependencies=[Depends(require_supabase_user)])
 def owner_app_config():
     return {"supabase_url": settings.supabase_url, "supabase_publishable_key": settings.supabase_publishable_key}
 
