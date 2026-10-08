@@ -385,16 +385,30 @@ def customer_status(client_id: str):
     return customer_service.customer_status(client_id)
 
 
-@app.get("/app", response_class=HTMLResponse, dependencies=[Depends(require_supabase_user)])
+@app.get("/app", response_class=HTMLResponse)
 def owner_app():
     from pathlib import Path
     path = Path(__file__).resolve().parent.parent / "web" / "index.html"
     return HTMLResponse(path.read_text(encoding="utf-8"))
 
 
-@app.get("/app/config", response_class=JSONResponse, dependencies=[Depends(require_supabase_user)])
+@app.get("/app/config", response_class=JSONResponse)
 def owner_app_config():
     return {"supabase_url": settings.supabase_url, "supabase_publishable_key": settings.supabase_publishable_key}
+
+
+@app.get("/app/manifest.json", response_class=JSONResponse)
+def owner_app_manifest():
+    return {
+        "name": "MARSEL ROAPP",
+        "short_name": "MARSEL",
+        "start_url": "/app",
+        "display": "standalone",
+        "background_color": "#080a0c",
+        "theme_color": "#0b0d0f",
+        "lang": "ru",
+        "description": "Premium Control Center Ювелирной студии MARSEL.",
+    }
 
 
 @app.get("/app/session", response_class=JSONResponse)
