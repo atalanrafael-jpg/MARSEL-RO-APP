@@ -63,7 +63,7 @@ def main() -> int:
         return 1
 
     print("RO App API v2 guard: PASSED")
-    print("No legacy /api/v1 paths or X-API-Key authentication markers found in scanned source/config files.")
+    print("No legacy RO App /v1 URLs or X-API-Key authentication markers found in scanned source/config files.")
     return 0
 
 
