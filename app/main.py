@@ -153,6 +153,24 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
     return data
 
 
+def require_admin_user(user: dict = Depends(require_supabase_user)) -> dict:
+    if user.get("app_role") not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return user
+
+
+@app.get("/api/v1/admin/overview")
+def admin_overview(user: dict = Depends(require_admin_user)):
+    return {
+        "role": user.get("app_role"),
+        "production_write": False,
+        "roapp_mode": "READ_ONLY",
+        "ai": ai_assistant.health(),
+        "payments": payment_gateway.health(),
+        "auth": "supabase",
+    }
+
+
 @app.get("/api/v1/platform/health", dependencies=[Depends(require_supabase_user)])
 def platform_health():
     return {"ai": ai_assistant.health(), "payments": payment_gateway.health(), "roapp": {"mode": "READ_ONLY", "write_enabled": False}}
