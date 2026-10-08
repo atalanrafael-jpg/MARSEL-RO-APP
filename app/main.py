@@ -186,7 +186,7 @@ def ai_advise(payload: dict):
 
 
 @app.post("/api/v1/payments/create", dependencies=[Depends(require_supabase_user)])
-async def create_payment(payload: dict):
+async def create_payment(payload: dict, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     try:
         amount_minor = int(payload.get("amount_minor") or 0)
     except (TypeError, ValueError) as exc:
@@ -200,6 +200,7 @@ async def create_payment(payload: dict):
             description=str(payload.get("description") or "MARSEL"),
             return_url=str(payload.get("return_url") or "/app"),
             metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+            idempotency_key=idempotency_key,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
