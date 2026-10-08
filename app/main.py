@@ -9,6 +9,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .agents.repair_estimator import RepairEstimator
+from .ai_assistant import MarselAI
+from .payments import PaymentGateway
 from .automation import get_automation_status, validate_automation_request
 from .audit import audit_order_pages
 from .business_models import Client, Item, RepairStatus
@@ -33,6 +35,8 @@ quality_service = QualityService()
 notification_service = NotificationService()
 customer_service = CustomerService(repair_service)
 repair_estimator = RepairEstimator()
+ai_assistant = MarselAI()
+payment_gateway = PaymentGateway()
 
 if settings.mcp_http_enabled:
     missing = [
@@ -147,6 +151,43 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
 
     data["app_role"] = role
     return data
+
+
+@app.get("/api/v1/platform/health", dependencies=[Depends(require_supabase_user)])
+def platform_health():
+    return {"ai": ai_assistant.health(), "payments": payment_gateway.health(), "roapp": {"mode": "READ_ONLY", "write_enabled": False}}
+
+
+@app.post("/api/v1/ai/advise", dependencies=[Depends(require_supabase_user)])
+def ai_advise(payload: dict):
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt or len(prompt) > 6000:
+        raise HTTPException(status_code=400, detail="prompt is required and must be <= 6000 characters")
+    result = ai_assistant.advise(prompt, payload.get("context") if isinstance(payload.get("context"), dict) else None)
+    return {"text": result.text, "model": result.model, "enabled": result.enabled}
+
+
+@app.post("/api/v1/payments/create", dependencies=[Depends(require_supabase_user)])
+async def create_payment(payload: dict):
+    try:
+        amount_minor = int(payload.get("amount_minor") or 0)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="amount_minor must be an integer") from exc
+    if amount_minor <= 0:
+        raise HTTPException(status_code=400, detail="amount_minor must be positive")
+    try:
+        result = await payment_gateway.create_payment(
+            amount_minor=amount_minor,
+            currency=str(payload.get("currency") or "RUB"),
+            description=str(payload.get("description") or "MARSEL"),
+            return_url=str(payload.get("return_url") or "/app"),
+            metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"provider": result.provider, "payment_id": result.payment_id,
+            "confirmation_url": result.confirmation_url, "status": result.status,
+            "configured": result.configured}
 
 
 @app.get("/automation/status")
