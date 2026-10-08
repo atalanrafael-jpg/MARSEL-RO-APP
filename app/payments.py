@@ -1,5 +1,4 @@
 from __future__ import annotations
-import uuid
 from base64 import b64encode
 from dataclasses import dataclass
 import httpx
@@ -21,13 +20,16 @@ class PaymentGateway:
                 "live_enabled": settings.payment_live_enabled}
 
     async def create_payment(self, *, amount_minor: int, currency: str, description: str,
-                             return_url: str, metadata: dict[str, str] | None = None) -> PaymentResult:
+                             return_url: str, metadata: dict[str, str] | None = None,
+                             idempotency_key: str | None = None) -> PaymentResult:
         if not settings.payment_shop_id or not settings.payment_secret_key:
             return PaymentResult("yookassa", None, None, "NOT_CONFIGURED", False)
         if not settings.payment_live_enabled:
             return PaymentResult("yookassa", None, None, "DISABLED", True)
         if settings.payment_provider != "yookassa":
             raise RuntimeError("Unsupported payment provider")
+        if not idempotency_key or len(idempotency_key) > 64:
+            raise RuntimeError("Idempotency-Key is required for live payments and must be <= 64 characters")
         auth = b64encode(f"{settings.payment_shop_id}:{settings.payment_secret_key}".encode()).decode()
         body = {"amount": {"value": f"{amount_minor / 100:.2f}", "currency": currency.upper()},
                 "capture": True, "description": description[:128],
@@ -35,7 +37,7 @@ class PaymentGateway:
                 "metadata": metadata or {}}
         async with httpx.AsyncClient(timeout=settings.payment_timeout_seconds) as client:
             response = await client.post("https://api.yookassa.ru/v3/payments",
-                headers={"Authorization": f"Basic {auth}", "Idempotence-Key": str(uuid.uuid4()), "Content-Type": "application/json"},
+                headers={"Authorization": f"Basic {auth}", "Idempotence-Key": idempotency_key, "Content-Type": "application/json"},
                 json=body)
         if response.status_code >= 400:
             raise RuntimeError("Payment provider rejected the request")
