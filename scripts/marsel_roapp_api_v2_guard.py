@@ -18,7 +18,6 @@ EXCLUDED_SUFFIXES = {".lock", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf"}
 EXCLUDED_DOC_NAMES = {"README.md"}
 
 PATTERNS = [
-    (re.compile(r"(?:https?://[^\s'\"]+)?/api/v1(?:[/\"'\s?#]|$)", re.I), "legacy /api/v1 path"),
     (re.compile(r"https?://[^\s'\"]*roapp[^\s'\"]*/v1(?:[/\"'\s?#]|$)", re.I), "legacy RO App /v1 URL"),
     (re.compile(r"\bX-API-Key\b", re.I), "legacy X-API-Key authentication header"),
 ]
@@ -63,7 +62,7 @@ def main() -> int:
         return 1
 
     print("RO App API v2 guard: PASSED")
-    print("No legacy RO App /v1 URLs or X-API-Key authentication markers found in scanned source/config files.")
+    print("No legacy RO App /v1 URLs or X-API-Key authentication markers found in scanned source/config files. Internal MARSEL application routes such as /api/v1/* are not RO App API endpoints and are intentionally excluded.")
     return 0
 
 
