@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     supabase_url: str = "https://wdbytmvzuensuuoquvav.supabase.co"
     supabase_publishable_key: str = ""
 
+    # Premium AI layer; server-side only.
+    openai_api_key: str = ""
+    openai_model: str = "gpt-6-luna"
+
+    # Premium payments; live charging is fail-closed by default.
+    payment_provider: str = "yookassa"
+    payment_shop_id: str = ""
+    payment_secret_key: str = ""
+    payment_live_enabled: bool = False
+    payment_timeout_seconds: float = 20
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

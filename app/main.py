@@ -9,6 +9,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .agents.repair_estimator import RepairEstimator
+from .ai_assistant import MarselAI
+from .payments import PaymentGateway
 from .automation import get_automation_status, validate_automation_request
 from .audit import audit_order_pages
 from .business_models import Client, Item, RepairStatus
@@ -33,6 +35,8 @@ quality_service = QualityService()
 notification_service = NotificationService()
 customer_service = CustomerService(repair_service)
 repair_estimator = RepairEstimator()
+ai_assistant = MarselAI()
+payment_gateway = PaymentGateway()
 
 if settings.mcp_http_enabled:
     missing = [
@@ -147,6 +151,62 @@ async def require_supabase_user(authorization: str | None = Header(default=None)
 
     data["app_role"] = role
     return data
+
+
+def require_admin_user(user: dict = Depends(require_supabase_user)) -> dict:
+    if user.get("app_role") not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return user
+
+
+@app.get("/api/v1/admin/overview")
+def admin_overview(user: dict = Depends(require_admin_user)):
+    return {
+        "role": user.get("app_role"),
+        "production_write": False,
+        "roapp_mode": "READ_ONLY",
+        "ai": ai_assistant.health(),
+        "payments": payment_gateway.health(),
+        "auth": "supabase",
+    }
+
+
+@app.get("/api/v1/platform/health", dependencies=[Depends(require_supabase_user)])
+def platform_health():
+    return {"ai": ai_assistant.health(), "payments": payment_gateway.health(), "roapp": {"mode": "READ_ONLY", "write_enabled": False}}
+
+
+@app.post("/api/v1/ai/advise", dependencies=[Depends(require_supabase_user)])
+def ai_advise(payload: dict):
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt or len(prompt) > 6000:
+        raise HTTPException(status_code=400, detail="prompt is required and must be <= 6000 characters")
+    result = ai_assistant.advise(prompt, payload.get("context") if isinstance(payload.get("context"), dict) else None)
+    return {"text": result.text, "model": result.model, "enabled": result.enabled}
+
+
+@app.post("/api/v1/payments/create", dependencies=[Depends(require_supabase_user)])
+async def create_payment(payload: dict, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+    try:
+        amount_minor = int(payload.get("amount_minor") or 0)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="amount_minor must be an integer") from exc
+    if amount_minor <= 0:
+        raise HTTPException(status_code=400, detail="amount_minor must be positive")
+    try:
+        result = await payment_gateway.create_payment(
+            amount_minor=amount_minor,
+            currency=str(payload.get("currency") or "RUB"),
+            description=str(payload.get("description") or "MARSEL"),
+            return_url=str(payload.get("return_url") or "/app"),
+            metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+            idempotency_key=idempotency_key,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"provider": result.provider, "payment_id": result.payment_id,
+            "confirmation_url": result.confirmation_url, "status": result.status,
+            "configured": result.configured}
 
 
 @app.get("/automation/status")
@@ -325,16 +385,30 @@ def customer_status(client_id: str):
     return customer_service.customer_status(client_id)
 
 
-@app.get("/app", response_class=HTMLResponse, dependencies=[Depends(require_supabase_user)])
+@app.get("/app", response_class=HTMLResponse)
 def owner_app():
     from pathlib import Path
     path = Path(__file__).resolve().parent.parent / "web" / "index.html"
     return HTMLResponse(path.read_text(encoding="utf-8"))
 
 
-@app.get("/app/config", response_class=JSONResponse, dependencies=[Depends(require_supabase_user)])
+@app.get("/app/config", response_class=JSONResponse)
 def owner_app_config():
     return {"supabase_url": settings.supabase_url, "supabase_publishable_key": settings.supabase_publishable_key}
+
+
+@app.get("/app/manifest.json", response_class=JSONResponse)
+def owner_app_manifest():
+    return {
+        "name": "MARSEL ROAPP",
+        "short_name": "MARSEL",
+        "start_url": "/app",
+        "display": "standalone",
+        "background_color": "#080a0c",
+        "theme_color": "#0b0d0f",
+        "lang": "ru",
+        "description": "Premium Control Center Ювелирной студии MARSEL.",
+    }
 
 
 @app.get("/app/session", response_class=JSONResponse)
