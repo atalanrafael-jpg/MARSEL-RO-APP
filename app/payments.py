@@ -30,6 +30,12 @@ class PaymentGateway:
             raise RuntimeError("Unsupported payment provider")
         if not idempotency_key or len(idempotency_key) > 64:
             raise RuntimeError("Idempotency-Key is required for live payments and must be <= 64 characters")
+        if currency.upper() != "RUB":
+            raise RuntimeError("Only RUB payments are enabled until currency handling is verified")
+        trusted_return_url = settings.payment_return_url.strip()
+        if not trusted_return_url.startswith("https://"):
+            raise RuntimeError("PAYMENT_RETURN_URL must be configured as a trusted HTTPS URL before live payments")
+        return_url = trusted_return_url
         auth = b64encode(f"{settings.payment_shop_id}:{settings.payment_secret_key}".encode()).decode()
         body = {"amount": {"value": f"{amount_minor / 100:.2f}", "currency": currency.upper()},
                 "capture": True, "description": description[:128],

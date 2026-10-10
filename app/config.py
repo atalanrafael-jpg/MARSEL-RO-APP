@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     payment_provider: str = "yookassa"
     payment_shop_id: str = ""
     payment_secret_key: str = ""
+    payment_return_url: str = ""
     payment_live_enabled: bool = False
     payment_timeout_seconds: float = 20
 

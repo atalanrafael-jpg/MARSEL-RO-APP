@@ -12,6 +12,7 @@ FastAPI is the application/API runtime. The owner interface is served by the sam
 - OPENAI_MODEL (optional; default gpt-6-luna)
 - PAYMENT_PROVIDER=yookassa
 - PAYMENT_SHOP_ID and PAYMENT_SECRET_KEY (server-side only)
+- PAYMENT_RETURN_URL: trusted HTTPS URL configured server-side; client-provided return URLs are not trusted
 - PAYMENT_LIVE_ENABLED=false during staging
 
 Never place RO App, OpenAI or payment secrets in web/index.html, browser JavaScript, public environment variables or Git.
