@@ -89,3 +89,20 @@ def test_github_bridge_requires_explicit_publish_gate():
     changes = ChangeSet("T-4", "feat/example", "fix: example", ("x.py",), "evidence/T-4.json")
     with pytest.raises(PermissionError):
         bridge.publish(changes)
+
+
+@pytest.mark.parametrize("invalid_risk", ["critical", "URGENT", "", None, 123])
+def test_dispatch_fails_closed_on_invalid_risk_before_handler(invalid_risk):
+    coordinator = MultiAgentCoordinator()
+    task = AgentTask("T-INVALID-RISK", "must not dispatch", risk=invalid_risk)
+    invoked = []
+
+    result = coordinator.dispatch(
+        task,
+        {"tester": lambda current: invoked.append(current.task_id) or AgentResult("tester", current.task_id, "PASS")},
+    )
+
+    assert task.state == TaskState.BLOCKED
+    assert result[0].status == "BLOCKED"
+    assert "invalid risk value" in result[0].findings[0]
+    assert invoked == []

@@ -80,7 +80,12 @@ class MultiAgentCoordinator:
     ) -> list[AgentResult]:
         if task.state != TaskState.PLANNED:
             raise ValueError("task must start in PLANNED state")
-        if task.risk == Risk.CRITICAL:
+        # Fail closed before any handler is invoked. Risk is a security boundary:
+        # do not accept strings or other values just because they resemble enum members.
+        if not isinstance(task.risk, Risk):
+            task.state = TaskState.BLOCKED
+            return [AgentResult("coordinator", task.task_id, "BLOCKED", ("invalid risk value; expected a Risk enum member",))]
+        if task.risk is Risk.CRITICAL:
             task.state = TaskState.BLOCKED
             return [AgentResult("coordinator", task.task_id, "BLOCKED", ("critical risk requires explicit external authorization",))]
 
