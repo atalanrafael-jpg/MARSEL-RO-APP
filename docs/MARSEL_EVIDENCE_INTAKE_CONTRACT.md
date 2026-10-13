@@ -37,6 +37,51 @@ Evidence MUST NOT contain API keys, bearer tokens, access/refresh tokens, passwo
 
 ## Evidence-specific requirements
 
+### Backup
+
+Must identify the backup operation, source/environment, completion result, timestamp, and an integrity/checksum reference sufficient for an authorized reviewer to identify the produced backup.
+
+### Restore
+
+Must identify the tested backup, target controlled environment, restore result, and verification result. Production data must not be mutated by the evidence-generation test.
+
+### Wix/ROAPP reconciliation
+
+Must identify both systems/environment references, the reconciliation scope, comparison result, and any unresolved differences. No production write is permitted during reconciliation evidence generation.
+
+### Unified read-only inventory
+
+Must be the independently generated read-only MARSEL Unified Control Plane evidence and must demonstrate no writes and no ROAPP mutation.
+
+### Duplicate-reference evidence
+
+Must identify the duplicate/reference check scope and result, with no production mutation.
+
+### Write dry-run
+
+Must identify the simulated operation set and prove `writes_executed` is `0`, `false`, or `null`.
+
+### Idempotency
+
+Must prove the tested operation is idempotent and must demonstrate no ROAPP mutation while generating the pre-write evidence.
+
+### Rollback
+
+Must prove `tested=true` and `reversible=true`, with enough metadata to identify the controlled test and its result.
+
+## Provenance requirements
+
+The intake SHOULD additionally include, where available:
+
+- source system/environment identifier;
+- producing job/run identifier;
+- source commit or version;
+- evidence generation timestamp;
+- SHA-256 of each evidence file;
+- operator or automation identity (non-secret identifier);
+- test scope and dataset/environment identifier.
+
+These provenance fields identify evidence; they do not grant authorization.
 The validator enforces minimum fields so producers cannot pass the gate with an unstructured narrative alone.
 
 ### Backup
@@ -88,6 +133,29 @@ The `sha256` value MUST be the SHA-256 digest of the evidence JSON after replaci
 5. Stale evidence => `BLOCKED`.
 6. Evidence from an unlinked or untrusted source => `BLOCKED`.
 7. Partial evidence MUST NOT be converted into placeholders.
+8. Passing pre-write evidence still results in `PASS_PREWRITE_ONLY`; production WRITE remains separately controlled.
+
+## Target handoff
+
+```text
+Authorized staging / controlled system
+        ↓
+Real evidence JSON files
+        ↓
+Trusted evidence intake
+        ↓
+MARSEL Evidence Orchestrator
+        ↓
+Evidence index + validation
+        ↓
+MARSEL Production Gate
+        ↓
+PASS_PREWRITE_ONLY (WRITE still disabled)
+```
+
+## Current implementation boundary
+
+The repository currently consumes the unified control-plane artifact automatically. The other seven evidence files must be supplied by their authorized producing systems. Until that trusted intake path exists and all eight files are real, current behavior must remain fail-closed.
 8. Passing pre-write evidence results in `PASS_PREWRITE_ONLY`; production WRITE remains separately controlled.
 
 ## Current implementation boundary
