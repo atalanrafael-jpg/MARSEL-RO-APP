@@ -75,7 +75,11 @@ For each task store:
 - action result and verification result;
 - follow-up or blocker.
 
-Status vocabulary: `NEW`, `VERIFIED`, `FAILED`, `BLOCKED`, `NEEDS_USER_ACTION`, `REVIEW_REQUIRED`, `NOT_TESTED`. A model-generated assertion alone is never evidence.
+**Internal task lifecycle** (agent execution only): `QUEUED`, `IN_PROGRESS`, `WAITING_APPROVAL`, `COMPLETED`, `CANCELLED`.
+
+**Canonical control/reporting statuses** (for Owner Control Center and control items): `NEW`, `PROPOSED`, `PARTIAL`, `VERIFIED`, `DONE`, `PREPARED`, `NOT VERIFIED`, `FAILED`, `BLOCKED`, `NEEDS USER ACTION`, `REVIEW_REQUIRED`, `NOT_TESTED`.
+
+Never pass internal lifecycle values directly into the Owner Control Center's canonical status field. Map them explicitly at the reporting boundary: `QUEUED` → `NEW`; `IN_PROGRESS` → `PARTIAL`; `WAITING_APPROVAL` → `NEEDS USER ACTION`; `COMPLETED` → `DONE` only after independent verification, otherwise `REVIEW_REQUIRED`; `CANCELLED` → `NOT VERIFIED` with a cancellation reason. Use `VERIFIED` only when implementation, test result, and current evidence support it. A model-generated assertion alone is never evidence.
 
 ## 6. Safety tiers
 
