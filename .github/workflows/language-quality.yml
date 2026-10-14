@@ -27,7 +27,7 @@ jobs:
           exit "$status"
       - name: Upload language quality report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marsel-language-quality-report
           path: marsel-language-quality.txt

@@ -24,7 +24,7 @@ jobs:
       - name: Run deterministic local control tests
         run: python scripts/marsel_safe_control_tests_v1.py
       - name: Upload safe-control artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marsel-safe-control-tests
           path: artifacts/marsel-safe-controls/

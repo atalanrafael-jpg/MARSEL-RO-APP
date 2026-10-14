@@ -27,7 +27,7 @@ jobs:
           printf '%s\n' "system=MARSEL ROAPP" "repository=atalanrafael-jpg/MARSEL-Ro-app" "branch=main" "production_write=false" "run_id=${GITHUB_RUN_ID}" "commit=${GITHUB_SHA}" > marsel-system-sync-evidence.txt
       - name: Upload evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: marsel-system-sync-evidence
           path: marsel-system-sync-evidence.txt
