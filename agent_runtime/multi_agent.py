@@ -44,6 +44,13 @@ class AgentTask:
     verification_result: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Risk is an authorization boundary. Once initialized, it must not be
+        # mutable while dispatch validation and handler submission are in flight.
+        if name == "risk" and name in self.__dict__:
+            raise AttributeError("task risk is immutable after initialization")
+        super().__setattr__(name, value)
+
 
 @dataclass(frozen=True)
 class AgentResult:
@@ -80,9 +87,9 @@ class MultiAgentCoordinator:
     ) -> list[AgentResult]:
         if task.state != TaskState.PLANNED:
             raise ValueError("task must start in PLANNED state")
-        # Fail closed before any handler is invoked. Risk is a security boundary:
-        # do not accept strings or other values just because they resemble enum members.
-        if not isinstance(task.risk, Risk):
+        # Fail closed before any handler is invoked. Risk is immutable after
+        # construction, so concurrent callers cannot change the checked value.
+        if type(task.risk) is not Risk:
             task.state = TaskState.BLOCKED
             return [AgentResult("coordinator", task.task_id, "BLOCKED", ("invalid risk value; expected a Risk enum member",))]
         if task.risk is Risk.CRITICAL:

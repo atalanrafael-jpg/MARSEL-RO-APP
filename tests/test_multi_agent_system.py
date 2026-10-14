@@ -106,3 +106,12 @@ def test_dispatch_fails_closed_on_invalid_risk_before_handler(invalid_risk):
     assert result[0].status == "BLOCKED"
     assert "invalid risk value" in result[0].findings[0]
     assert invoked == []
+
+
+def test_task_risk_cannot_be_mutated_after_initialization():
+    task = AgentTask("T-IMMUTABLE-RISK", "risk must remain stable", risk=Risk.HIGH)
+
+    with pytest.raises(AttributeError, match="risk is immutable"):
+        task.risk = Risk.CRITICAL
+
+    assert task.risk is Risk.HIGH
