@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""MARSEL ROAPP safe live probes.
+
+Only probes endpoints explicitly supplied through environment variables.
+No credentials are printed or persisted. No write methods are used.
+"""
+from __future__ import annotations
+import json, os, sys, time
 """MARSEL safe live probes; GET only, no credentials persisted."""
 from __future__ import annotations
 import json, os, time
@@ -14,6 +21,18 @@ TARGETS = {
 }
 OUT = Path("artifacts/marsel-live-probes.json")
 
+def probe(url: str) -> dict:
+    start = time.monotonic()
+    try:
+        req = Request(url, method="GET", headers={"User-Agent": "MARSEL-ROAPP-Health/1.0"})
+        with urlopen(req, timeout=10) as r:
+            return {"verified": 200 <= r.status < 400, "http_status": r.status,
+                    "latency_ms": round((time.monotonic()-start)*1000, 1)}
+    except Exception as exc:
+        return {"verified": False, "error_class": type(exc).__name__,
+                "latency_ms": round((time.monotonic()-start)*1000, 1)}
+
+def main() -> int:
 
 def probe(url):
     start = time.monotonic()

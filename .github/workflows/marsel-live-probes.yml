@@ -18,6 +18,9 @@ jobs:
     environment:
       name: staging
     steps:
+      - uses: actions/checkout@v4
+      - name: Run read-only probes
+        env:
       - uses: actions/checkout@v6
       - name: Run read-only probes
         env:
@@ -29,6 +32,7 @@ jobs:
           WIX_HEALTH_URL: ${{ vars.WIX_HEALTH_URL }}
         run: python scripts/marsel_live_probe_v1.py
       - name: Upload probe report
+        uses: actions/upload-artifact@v4
         if: always()
         uses: actions/upload-artifact@v6
         with:
