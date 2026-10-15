@@ -1,4 +1,4 @@
----
+
 name: AI PoC: add FastAPI AI service, scheduled draft generator and workflows
 about: Adds PoC for LLM integration — FastAPI service, scheduled draft generator and GitHub Actions.
 ---
