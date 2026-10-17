@@ -1,2 +1,2 @@
-openai>=3.20.0,<4
+openai>=3.24.0,<4
 python-dotenv>=1.2.4
