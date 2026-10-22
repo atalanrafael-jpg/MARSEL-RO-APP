@@ -43,6 +43,19 @@ class AgentTask:
     evidence_reference: str | None = None
     verification_result: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    _dispatch_lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
+    _dispatch_started: bool = field(default=False, init=False, repr=False, compare=False)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "risk":
+            lock = self.__dict__.get("_dispatch_lock")
+            if lock is not None:
+                with lock:
+                    if self.__dict__.get("_dispatch_started", False):
+                        raise AttributeError("task risk is immutable after dispatch starts")
+                    object.__setattr__(self, name, value)
+                return
+        object.__setattr__(self, name, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Risk is an authorization boundary. Once initialized, it must not be
@@ -85,6 +98,34 @@ class MultiAgentCoordinator:
         task: AgentTask,
         handlers: dict[str, Callable[[AgentTask], AgentResult]],
     ) -> list[AgentResult]:
+        # The lock makes risk validation and handler submission one atomic boundary.
+        # Once dispatch starts, AgentTask refuses risk reassignment, so handlers cannot
+        # receive a task whose risk differs from the value that passed these checks.
+        with task._dispatch_lock:
+            if task.state != TaskState.PLANNED:
+                raise ValueError("task must start in PLANNED state")
+            task._dispatch_started = True
+            risk = task.risk
+            if type(risk) is not Risk:
+                task.state = TaskState.BLOCKED
+                return [AgentResult("coordinator", task.task_id, "BLOCKED", ("invalid risk value; expected a Risk enum member",))]
+            if risk is Risk.CRITICAL:
+                task.state = TaskState.BLOCKED
+                return [AgentResult("coordinator", task.task_id, "BLOCKED", ("critical risk requires explicit external authorization",))]
+
+            unknown = set(handlers) - set(self.agents)
+            if unknown:
+                raise KeyError(f"unknown agent: {sorted(unknown)!r}")
+
+            task.state = TaskState.RUNNING
+            agent_ids = list(handlers)
+            executor = ThreadPoolExecutor(max_workers=self.max_workers or max(1, len(agent_ids)))
+            try:
+                futures = [executor.submit(handlers[agent_id], task) for agent_id in agent_ids]
+            except BaseException:
+                executor.shutdown(wait=True)
+                task.state = TaskState.BLOCKED
+                raise
         if task.state != TaskState.PLANNED:
             raise ValueError("task must start in PLANNED state")
         # Fail closed before any handler is invoked. Risk is immutable after
@@ -100,12 +141,11 @@ class MultiAgentCoordinator:
         if unknown:
             raise KeyError(f"unknown agent: {sorted(unknown)!r}")
 
-        task.state = TaskState.RUNNING
-        agent_ids = list(handlers)
-        with ThreadPoolExecutor(max_workers=self.max_workers or max(1, len(agent_ids))) as executor:
-            futures = [executor.submit(handlers[agent_id], task) for agent_id in agent_ids]
+        try:
             # Reading results in submission order keeps the public result order deterministic.
             results = [future.result() for future in futures]
+        finally:
+            executor.shutdown(wait=True)
 
         for agent_id, result in zip(agent_ids, results):
             if result.agent_id != agent_id or result.task_id != task.task_id:

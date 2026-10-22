@@ -108,6 +108,59 @@ def test_dispatch_fails_closed_on_invalid_risk_before_handler(invalid_risk):
     assert invoked == []
 
 
+def test_dispatch_rejects_class_spoofed_risk_before_handler():
+    class SpoofedRisk:
+        @property
+        def __class__(self):
+            return Risk
+
+    spoofed = SpoofedRisk()
+    assert isinstance(spoofed, Risk)
+    coordinator = MultiAgentCoordinator()
+    task = AgentTask("T-SPOOFED-RISK", "must not dispatch", risk=spoofed)
+    invoked = []
+
+    result = coordinator.dispatch(
+        task,
+        {"tester": lambda current: invoked.append(current.task_id) or AgentResult("tester", current.task_id, "PASS")},
+    )
+
+    assert task.state == TaskState.BLOCKED
+    assert result[0].status == "BLOCKED"
+    assert "invalid risk value" in result[0].findings[0]
+    assert invoked == []
+
+
+def test_risk_cannot_change_after_dispatch_starts():
+    coordinator = MultiAgentCoordinator()
+    task = AgentTask("T-RISK-RACE", "risk must remain stable")
+    handler_started = threading.Event()
+    release_handler = threading.Event()
+    dispatch_errors = []
+
+    def handler(current):
+        handler_started.set()
+        assert release_handler.wait(timeout=2)
+        return AgentResult("tester", current.task_id, "PASS", evidence_reference="evidence/T-RISK-RACE.json")
+
+    def run_dispatch():
+        try:
+            coordinator.dispatch(task, {"tester": handler})
+        except BaseException as exc:
+            dispatch_errors.append(exc)
+
+    worker = threading.Thread(target=run_dispatch)
+    worker.start()
+    assert handler_started.wait(timeout=2)
+    with pytest.raises(AttributeError, match="immutable after dispatch starts"):
+        task.risk = Risk.CRITICAL
+    release_handler.set()
+    worker.join(timeout=3)
+
+    assert not worker.is_alive()
+    assert dispatch_errors == []
+    assert task.risk is Risk.MEDIUM
+    assert task.state == TaskState.RUNNING
 def test_task_risk_cannot_be_mutated_after_initialization():
     task = AgentTask("T-IMMUTABLE-RISK", "risk must remain stable", risk=Risk.HIGH)
 
