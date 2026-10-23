@@ -41,7 +41,7 @@ jobs:
           name: marsel-restore-evidence
           path: artifacts/evidence
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Compile control scripts
