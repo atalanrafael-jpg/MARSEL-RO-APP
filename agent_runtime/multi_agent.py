@@ -88,9 +88,7 @@ class MultiAgentCoordinator:
         task: AgentTask,
         handlers: dict[str, Callable[[AgentTask], AgentResult]],
     ) -> list[AgentResult]:
-        # The lock makes risk validation and handler submission one atomic boundary.
-        # Once dispatch starts, AgentTask refuses risk reassignment, so handlers cannot
-        # receive a task whose risk differs from the value that passed these checks.
+        """Validate once, dispatch approved handlers, then validate their identities."""
         with task._dispatch_lock:
             if task.state != TaskState.PLANNED:
                 raise ValueError("task must start in PLANNED state")
@@ -105,6 +103,7 @@ class MultiAgentCoordinator:
 
             unknown = set(handlers) - set(self.agents)
             if unknown:
+                task.state = TaskState.BLOCKED
                 raise KeyError(f"unknown agent: {sorted(unknown)!r}")
 
             task.state = TaskState.RUNNING
@@ -116,24 +115,13 @@ class MultiAgentCoordinator:
                 executor.shutdown(wait=True)
                 task.state = TaskState.BLOCKED
                 raise
-        if task.state != TaskState.PLANNED:
-            raise ValueError("task must start in PLANNED state")
-        # Fail closed before any handler is invoked. Risk is immutable after
-        # construction, so concurrent callers cannot change the checked value.
-        if type(task.risk) is not Risk:
-            task.state = TaskState.BLOCKED
-            return [AgentResult("coordinator", task.task_id, "BLOCKED", ("invalid risk value; expected a Risk enum member",))]
-        if task.risk is Risk.CRITICAL:
-            task.state = TaskState.BLOCKED
-            return [AgentResult("coordinator", task.task_id, "BLOCKED", ("critical risk requires explicit external authorization",))]
-
-        unknown = set(handlers) - set(self.agents)
-        if unknown:
-            raise KeyError(f"unknown agent: {sorted(unknown)!r}")
 
         try:
             # Reading results in submission order keeps the public result order deterministic.
             results = [future.result() for future in futures]
+        except BaseException:
+            task.state = TaskState.BLOCKED
+            raise
         finally:
             executor.shutdown(wait=True)
 
