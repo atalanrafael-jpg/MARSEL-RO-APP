@@ -47,7 +47,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git ls-files | grep -E '(^|/)(\.env|\.env\.[^/]+)$' | grep -v '^\.env\.example$'; then
+          # Permit tracked sample templates at any directory depth, but not real .env files.
+          if git ls-files | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -Ev '(^|/)\.env\.example$'; then
             echo "Tracked environment file detected"
             exit 1
           fi
@@ -57,10 +58,10 @@ jobs:
         run: |
           set -euo pipefail
           patterns=(
-            'ROAPP_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'OPENAI_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'GMAIL_TOKEN_ENCRYPTION_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'OPENAI_ADS_CONVERSIONS_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
+            'ROAPP_API_KEY[[:space:]]*=[[:space:]]*['"'"][^'"'"]{12,}['"'"]'
+            'OPENAI_API_KEY[[:space:]]*=[[:space:]]*['"'"][^'"'"]{12,}['"'"]'
+            'GMAIL_TOKEN_ENCRYPTION_KEY[[:space:]]*=[[:space:]]*['"'"][^'"'"]{12,}['"'"]'
+            'OPENAI_ADS_CONVERSIONS_API_KEY[[:space:]]*=[[:space:]]*['"'"][^'"'"]{12,}['"'"]'
           )
           for pattern in "${patterns[@]}"; do
             if git grep -nE "$pattern" -- ':!00_PROJECT_CONTROL/**' ':!.env.example' ':!*.md'; then
@@ -83,7 +84,7 @@ jobs:
             echo "## MARSEL Governance"
             echo "- canonical branch: main"
             echo "- governance docs: present"
-            echo "- tracked .env files: none"
+            echo "- tracked real .env files: none detected"
             echo "- obvious hardcoded credential assignments: none detected"
             echo "- production gate: present"
           } >> "$GITHUB_STEP_SUMMARY"
