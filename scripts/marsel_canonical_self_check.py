@@ -135,7 +135,7 @@ def main() -> int:
     ):
         if marker not in governance_text:
             fail(f"canonical governance marker missing: {marker}")
-    if "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`" in bootstrap_text:
+    if "Canonical repository: `atalanrafael-jpg/Ro-app`" in bootstrap_text:
         fail("bootstrap still contains obsolete canonical repository")
     if "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`" not in bootstrap_text:
         fail("bootstrap does not declare the canonical MARSEL ROAPP repository")
