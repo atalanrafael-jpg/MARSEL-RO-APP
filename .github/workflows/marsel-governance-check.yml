@@ -83,47 +83,7 @@ jobs:
             echo "## MARSEL Governance"
             echo "- canonical branch: main"
             echo "- governance docs: present"
-            echo "- tracked real .env files: none detected"
-            echo "- obvious hardcoded credential assignments: none detected"
-            echo "- production gate: present"
-          } >> "$GITHUB_STEP_SUMMARY"
-; then
-            echo "Tracked environment file detected"
-            exit 1
-          fi
-
-      - name: Verify no obvious hardcoded credential assignments
-        shell: bash
-        run: |
-          set -euo pipefail
-          patterns=(
-            'ROAPP_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'OPENAI_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'GMAIL_TOKEN_ENCRYPTION_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-            'OPENAI_ADS_CONVERSIONS_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
-          )
-          for pattern in "${patterns[@]}"; do
-            if git grep -nE "$pattern" -- ':!00_PROJECT_CONTROL/**' ':!.env.example' ':!*.md'; then
-              echo "Possible hardcoded credential assignment detected"
-              exit 1
-            fi
-          done
-
-      - name: Verify production WRITE remains explicitly gated
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f .github/workflows/marsel-production-gate.yml
-          grep -RqiE 'write|blocked|fail.closed|fail-closed' .github/workflows/marsel-production-gate.yml
-
-      - name: Publish governance summary
-        shell: bash
-        run: |
-          {
-            echo "## MARSEL Governance"
-            echo "- canonical branch: main"
-            echo "- governance docs: present"
-            echo "- tracked real .env files: none detected"
+            echo "- tracked .env files: none"
             echo "- obvious hardcoded credential assignments: none detected"
             echo "- production gate: present"
           } >> "$GITHUB_STEP_SUMMARY"
