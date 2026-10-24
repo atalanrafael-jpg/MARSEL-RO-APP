@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_REPOSITORY = "atalanrafael-jpg/MARSEL-Ro-app"
+EXPECTED_REPOSITORY = "atalanrafael-jpg/MARSEL-ROAPP"
 EXPECTED_BRANCH = "main"
 WORKFLOW = ROOT / ".github" / "workflows" / "marsel-unified-control-plane.yml"
 PRODUCTION_GATE = ROOT / ".github" / "workflows" / "marsel-production-gate.yml"
@@ -128,18 +128,18 @@ def main() -> int:
     if "marsel-unified-control-plane.yml" not in workflow_registry_text:
         fail("workflow registry does not name the canonical control plane")
     for marker in (
-        "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`",
+        "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`",
         "Canonical branch: `main`",
         "main is the only canonical integration branch",
         "PRODUCTION_WRITE = DISABLED",
     ):
         if marker not in governance_text:
             fail(f"canonical governance marker missing: {marker}")
-    if "Canonical repository: `atalanrafael-jpg/Ro-app`" in bootstrap_text:
+    if "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`" in bootstrap_text:
         fail("bootstrap still contains obsolete canonical repository")
-    if "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`" not in bootstrap_text:
+    if "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`" not in bootstrap_text:
         fail("bootstrap does not declare the canonical MARSEL ROAPP repository")
-    if runtime_ref_name == EXPECTED_BRANCH and "Canonical repository: `atalanrafael-jpg/MARSEL-Ro-app`" not in bootstrap_text:
+    if runtime_ref_name == EXPECTED_BRANCH and "Canonical repository: `atalanrafael-jpg/MARSEL-ROAPP`" not in bootstrap_text:
         fail("main branch is missing the canonical repository declaration")
     if "Production WRITE: `DISABLED`" not in settings_text:
         fail("settings baseline does not record production WRITE as disabled")
