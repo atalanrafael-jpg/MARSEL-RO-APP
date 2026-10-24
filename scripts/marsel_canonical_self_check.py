@@ -62,10 +62,15 @@ def fail(message: str) -> None:
     raise SystemExit(f"CANONICAL_SELF_CHECK_FAIL: {message}")
 
 
+def repository_names_match(actual: str, expected: str) -> bool:
+    """Compare GitHub owner/repository names without case sensitivity."""
+    return actual.casefold() == expected.casefold()
+
+
 def main() -> int:
     runtime_repository = os.getenv("GITHUB_REPOSITORY")
     runtime_ref_name = os.getenv("GITHUB_REF_NAME")
-    if runtime_repository and runtime_repository != EXPECTED_REPOSITORY:
+    if runtime_repository and not repository_names_match(runtime_repository, EXPECTED_REPOSITORY):
         fail(f"unexpected canonical repository: {runtime_repository}; expected {EXPECTED_REPOSITORY}")
     required = [
         WORKFLOW, PRODUCTION_GATE, GENERIC_TEST, WORKFLOW_REGISTRY,
