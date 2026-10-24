@@ -6,6 +6,7 @@ aggregation and verification happen only after every handler completes.
 """
 from __future__ import annotations
 
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
@@ -45,17 +46,6 @@ class AgentTask:
     metadata: dict[str, Any] = field(default_factory=dict)
     _dispatch_lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False, compare=False)
     _dispatch_started: bool = field(default=False, init=False, repr=False, compare=False)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name == "risk":
-            lock = self.__dict__.get("_dispatch_lock")
-            if lock is not None:
-                with lock:
-                    if self.__dict__.get("_dispatch_started", False):
-                        raise AttributeError("task risk is immutable after dispatch starts")
-                    object.__setattr__(self, name, value)
-                return
-        object.__setattr__(self, name, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Risk is an authorization boundary. Once initialized, it must not be
