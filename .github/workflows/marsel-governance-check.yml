@@ -47,8 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Permit tracked sample templates at any directory depth, but not real .env files.
-          if git ls-files | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -Ev '(^|/)\.env\.example$'; then
+          if git ls-files | grep -E '(^|/)(\.env|\.env\.[^/]+)$' | grep -v '^\.env\.example$'; then
             echo "Tracked environment file detected"
             exit 1
           fi
@@ -58,10 +57,10 @@ jobs:
         run: |
           set -euo pipefail
           patterns=(
-            'ROAPP_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"'"'"'"']'
-            'OPENAI_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"'"'"'"']'
-            'GMAIL_TOKEN_ENCRYPTION_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"'"'"'"']'
-            'OPENAI_ADS_CONVERSIONS_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"'"'"'"']'
+            'ROAPP_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
+            'OPENAI_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
+            'GMAIL_TOKEN_ENCRYPTION_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
+            'OPENAI_ADS_CONVERSIONS_API_KEY[[:space:]]*=[[:space:]]*['"'"'][^'"'"']{12,}['"'"']'
           )
           for pattern in "${patterns[@]}"; do
             if git grep -nE "$pattern" -- ':!00_PROJECT_CONTROL/**' ':!.env.example' ':!*.md'; then
